@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 """dump a colorForth image file -- jc.unternet.net
 
    public domain code based on Tim Neitz's cf2html

@@ -1,4 +1,4 @@
-.intel_syntax ;# floppy boot segment
+.intel_syntax noprefix ;# floppy boot segment
 
 .org 0 ;# actually 7c00
 start: jmp  start0
