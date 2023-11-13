@@ -1,0 +1,4592 @@
+   1              	.intel_syntax ;#colorforth, 2001 jul 22, chuck moore, public domain
+   2              	
+   3              	;#.model tiny
+   4              	;#.486p
+   5              	;#only segment use32
+   6              	;#assume ds:only
+   7              	
+   8              	.macro next adr
+   9              	    dec  ecx
+  10              	    jnz  \adr
+  11              	.endm
+  12              	
+  13              	.macro dup_
+  14              	    lea  esi, [esi-4]
+  15              	    mov  [esi], eax
+  16              	.endm
+  17              	
+  18              	.macro drop
+  19              	    lodsd
+  20              	.endm
+  21              	
+  22              	.equ hp, 1024
+  23              	.equ vp, 768
+  24              	.equ vesa, 0x4117 ;# bit 12 sets linear address mode
+  25              	.equ buffer, 604*256
+  26              	.include "boot.asm" ;# boot boot0 hard
+   1              	.intel_syntax ;# floppy boot segment
+   2              	
+   3              	.org 0 ;# actually 7c00
+   4 0000 EB56     	start: jmp  start0
+   5 0002 90       	    nop
+   6              	
+   7 0003 636D6366 	    .ascii "cmcf 1.0"
+   7      20312E30 
+   8 000b 0002     	    .word 512     ;# bytes/sector
+   9 000d 01       	    .byte 1       ;# sector/cluster
+  10 000e 0100     	    .word 1       ;# sector reserved
+  11 0010 02       	    .byte 2       ;# fats
+  12 0011 E000     	    .word 16*14   ;# root directory entries
+  13 0013 400B     	    .word 80*2*18 ;# sectors
+  14 0015 F0       	    .byte 0x0f0    ;# media
+  15 0016 0900     	    .word 9       ;# sectors/fat
+  16 0018 1200     	    .word 18      ;# sectors/track
+  17 001a 0200     	    .word 2       ;# heads
+  18 001c 00000000 	    .long 0       ;# hidden sectors
+  19 0020 400B0000 	    .long 80*2*18 ;# sectors again
+  20 0024 00       	    .byte 0       ;# drive
+  21              	
+  22 0025 00       	command:  .byte 0
+  23 0026 00       	         .byte 0   ;# head, drive
+  24 0027 00       	cylinder: .byte 0 ;# 1 in compiled color.com from CM website...
+  25              	;# causes load to skip from cylinder 0 directly to cylinder 2,
+  26              	;# missing bytes 0x4800 to 0x9000 in color.com image
+  27 0028 00       	         .byte 0   ;# head
+  28 0029 01       	         .byte 1   ;# sector
+  29 002a 02       	         .byte 2   ;# 512 bytes/sector
+  30 002b 12       	         .byte 18  ;# sectors/track
+  31 002c 1B       	         .byte 0x1b ;# gap
+  32 002d FF       	         .byte 0x0ff
+  33 002e 89F6     	.align 4
+  34 0030 09000000 	nc: .long 9 ;# forth+icons+blocks 24-161 ;# number of cylinders, 9 (out of 80)
+  35 0034 1700     	gdt: .word 0x17
+  36 0036 40000000 	    .long gdt0
+  37 003a 8DB60000 	.align 8
+  37      0000
+  38 0040 00000000 	gdt0: .word 0, 0, 0, 0
+  38      00000000 
+  39 0048 FFFF0000 	    .word 0x0ffff, 0, 0x9a00, 0x0cf ;# code
+  39      009ACF00 
+  40 0050 FFFF0000 	    .word 0x0ffff, 0, 0x9200, 0x0cf ;# data
+  40      0092CF00 
+  41              	
+  42              	;# code is compiled in protected 32-bit mode.
+  43              	;# hence;#  .org .-2  to fix 16-bit words
+  44              	;# and 4 hand-assembled instructions.
+  45              	;# and eax and ax exchanged
+  46              	;# this code is in real 16-bit mode
+  47              	
+  48              	.code16
+  49              	start0:
+  50 0058 B8014F   	    mov  ax, 0x4f01 ;# get video mode info
+  51 005b B91741   	    mov  cx, vesa ;# a 16-bit color linear video mode (5:6:5 rgb)
+  52 005e BF007E   	    mov  di, 0x7e00 ;# use buffer space just past loaded bootsector
+  53 0061 CD10     	    int  0x10
+  54 0063 B8024F   	    mov  ax, 0x4f02 ;# set video mode
+  55 0066 89CB     	    mov  bx, cx ;# vesa mode
+  56 0068 CD10     	    int  0x10
+  57 006a FA       	    cli
+  58 006b 31C0     	    xor  ax, ax    ;# move code to 0
+  59 006d 89C7     	    mov  di, ax
+  60 006f 8CCB     	    mov  bx, cs
+  61 0071 8EDB     	    mov  ds, bx
+  62 0073 E80000   	    call loc ;# where are we? ip+4*cs
+  63 0076 5E       	loc: pop  si
+  64 0077 81EE7600 	    sub  si, offset loc-offset start
+  65 007b B98000   	    mov  cx, 512/4 ;# only 256 bytes unless...
+  66              	;# compile as 32-bit code here so it moves longwords and not words
+  67              	.code32
+  68 007e F366A5   	    rep movsw
+  69              	;#  jmp  0:relocate
+  70 0081 EA       	    .byte 0x0ea
+  71 0082 86000000 	    .word relocate-start, 0
+  72              	
+  73              	relocate: ;# this code is executed from an offset of 0, not 0x7c00
+  74 0086 8ED8     	    mov  ds, ax
+  75              	;#  lgdt fword ptr gdt
+  76 0088 0F0116   	    .byte 0x0f, 1, 0x16
+  77 008b 3400     	    .word gdt-start
+  78 008d B001     	    mov  al, 1
+  79 008f 0F22C0   	    mov  cr0, eax
+  80              	;#  jmp  8:protected
+  81 0092 EA       	    .byte 0x0ea
+  82 0093 97000800 	    .word protected-start, 8
+  83              	
+  84              	protected: ;# now in protected 32-bit mode
+  85 0097 B010     	    mov  al, 0x10
+  86 0099 8ED8     	    mov  ds, eax
+  87 009b 8EC0     	    mov  es, eax
+  88 009d 8ED0     	    mov  ss, eax
+  89 009f BC00000A 	    mov  esp, offset gods ;# assembles as a dword ptr without 'offset'
+  89      00
+  90 00a4 FF35287E 	    push [ds:0x7e28] ;# physical memory pointer returned by VESA call
+  90      0000
+  91 00aa 31C9     	    xor  ecx, ecx
+  92              	
+  93 00ac B0D1     	a20: mov  al, 0x0d1
+  94 00ae E664     	    out  0x64, al ;# to keyboard
+  95 00b0 E464     	0:  in   al, 0x64
+  96 00b2 2402     	    and  al, 2
+  97 00b4 75FA     	    jnz  0b
+  98 00b6 B04B     	    mov  al, 0x4b
+  99 00b8 E660     	    out  0x60, al ;# to keyboard, enable A20
+ 100              	
+ 101 00ba E8D00000 	    call dma ;# set up for non-dma floppy access
+ 101      00
+ 102 00bf C1E304   	    shl  ebx, 4
+ 103 00c2 01DE     	    add  esi, ebx
+ 104 00c4 813E4444 	    cmp  dword ptr [esi], 0x44444444 ;# boot?
+ 104      4444
+ 105 00ca 750D     	    jnz  cold
+ 106 00cc 66B9803E 	    mov  cx, 63*0x100-0x80 ;# nope
+ 107 00d0 F3A5     	    rep movsd
+ 108 00d2 BE48F409 	    mov  esi, offset godd ;# 0x9f448, 3000 bytes below 0xa0000 (gods)
+ 108      00
+ 109 00d7 EB23     	    jmp  start2
+ 110              	
+ 111 00d9 E8820000 	cold:   call sense_
+ 111      00
+ 112 00de 79F9     	        jns  cold
+ 113 00e0 BE48F409 	    mov  esi, offset godd ;# 0x9f448, 3000 bytes below 0xa0000 (gods)
+ 113      00
+ 114 00e5 31FF     	    xor  edi, edi ;# cylinder 0 on top of address 0
+ 115 00e7 8A0D3000 	    mov  cl, byte ptr nc ;# number of cylinders used
+ 115      0000
+ 116 00ed 51       	0:     push ecx
+ 117 00ee E8C70000 	        call read
+ 117      00
+ 118 00f3 FF052700 	        inc dword ptr  cylinder
+ 118      0000
+ 119 00f9 59       	        pop  ecx
+ 120 00fa E2F1     	        loop 0b
+ 121 00fc E87E0000 	start2: call stop
+ 121      00
+ 122 0101 E9820100 	    jmp  start1
+ 122      00
+ 123              	
+ 124              	.equ us, 1000/6
+ 125              	.equ ms, 1000*us
+ 126 0106 B11C     	spin: mov  cl, 0x1c
+ 127 0108 E8740000 	    call onoff
+ 127      00
+ 128              	;#    mov  dx, 0x3f2
+ 129              	;#    out  dx, al
+ 130 010d E84E0000 	0:     call sense_
+ 130      00
+ 131 0112 79F9     	        jns  0b
+ 132 0114 C7052700 	    mov dword ptr  cylinder, 0 ;# calibrate
+ 132      00000000 
+ 132      0000
+ 133 011e B007     	    mov  al, 7
+ 134 0120 B102     	    mov  cl, 2
+ 135 0122 E81E0000 	    call cmd
+ 135      00
+ 136 0127 B9C07AF2 	    mov  ecx, 500*ms
+ 136      04
+ 137 012c E2FE     	0:     loop 0b
+ 138 012e E82D0000 	cmdi:   call sense_
+ 138      00
+ 139 0133 78F9     	        js   cmdi
+ 140 0135 C3       	    ret
+ 141              	
+ 142              	ready: ;#call delay
+ 143 0136 66BAF403 	    mov  dx, 0x3f4
+ 144 013a EC       	0:     in   al, dx
+ 145 013b D0E0     	        shl  al, 1
+ 146 013d 73FB     	        jnc  0b
+ 147 013f 8D5201   	    lea  edx, [edx+1]
+ 148 0142 C3       	    ret
+ 149              	
+ 150 0143 B109     	transfer: mov  cl, 9
+ 151 0145 8D152500 	cmd: lea  edx, command
+ 151      0000
+ 152 014b 8802     	    mov  [edx], al
+ 153 014d 56       	cmd0: push esi
+ 154 014e 89D6     	    mov  esi, edx
+ 155 0150 E8E1FFFF 	cmd1:  call ready
+ 155      FF
+ 156 0155 7903     	       jns  0f
+ 157 0157 EC       	       in   al, dx
+ 158 0158 EBF6     	       jmp  cmd1
+ 159 015a AC       	0:     lodsb
+ 160 015b EE       	       out  dx, al
+ 161 015c E2F2     	      loop cmd1
+ 162 015e 5E       	    pop  esi
+ 163 015f C3       	    ret
+ 164              	
+ 165 0160 B008     	sense_: mov  al, 8
+ 166 0162 B9010000 	    mov  ecx, 1
+ 166      00
+ 167 0167 E8D9FFFF 	    call cmd
+ 167      FF
+ 168 016c E8C5FFFF 	0:  call ready
+ 168      FF
+ 169 0171 79F9     	    jns  0b
+ 170 0173 EC       	    in   al, dx
+ 171 0174 20C0     	    and  al, al
+ 172              	;#  cmp  al, 0x80
+ 173 0176 C3       	    ret
+ 174              	
+ 175 0177 E8E4FFFF 	seek: call sense_
+ 175      FF
+ 176 017c 79F9     	    jns  seek
+ 177 017e C3       	    ret
+ 178              	
+ 179 017f B10C     	stop: mov  cl, 0x0c ;# motor off
+ 180              	onoff: dup_
+ 180 0181 8D76FC   	> lea esi,[esi-4]
+ 180 0184 8906     	> mov [esi],eax
+ 181 0186 88C8     	    mov  al, cl
+ 182 0188 66BAF203 	    mov  dx, 0x3f2
+ 183 018c EE       	    out  dx, al
+ 184              	    drop
+ 184 018d AD       	> lodsd
+ 185 018e C3       	    ret
+ 186              	
+ 187 018f 66C70526 	dma: mov  word ptr command+1, 0x3a2 ;# l2 s6 u32 ms (e 2)
+ 187      000000A2 
+ 187      03
+ 188 0198 B003     	    mov  al, 3 ;# timing
+ 189 019a B103     	    mov  cl, 3
+ 190 019c E8A4FFFF 	    call cmd
+ 190      FF
+ 191 01a1 66C70526 	    mov  word ptr command+1, 0x7000 ;# +seek -fifo -poll
+ 191      00000000 
+ 191      70
+ 192 01aa B013     	    mov  al, 0x13 ;# configure
+ 193 01ac B104     	    mov  cl, 4
+ 194 01ae E892FFFF 	    call cmd
+ 194      FF
+ 195              	;# the following instruction clears the cylinder number among other things
+ 196 01b3 890D2500 	    mov  dword ptr command, ecx ;# 0
+ 196      0000
+ 197 01b9 C3       	    ret
+ 198              	
+ 199 01ba E8B8FFFF 	read: call seek
+ 199      FF
+ 200 01bf B0E6     	    mov  al, 0x0e6 ;# read normal data
+ 201 01c1 E87DFFFF 	    call transfer
+ 201      FF
+ 202              	;# about to read 0x4800, or 18432 bytes
+ 203              	;# total of 165888 (0x28800) bytes in 9 cylinders, 1.44 MB in 80 cylinders
+ 204              	;# note that the first call overwrites the cylinder number with 1 from
+ 205              	;# CM's color.com image; that's why it skips from cylinder 0 to 2
+ 206 01c6 66B90048 	    mov  cx, 18*2*512 ;# two heads, 18 sectors/track, 512 bytes/sector
+ 207 01ca E867FFFF 	0:  call ready
+ 207      FF
+ 208 01cf EC       	    in   al, dx
+ 209 01d0 AA       	    stosb
+ 210              	    next 0b
+ 210 01d1 49       	> dec ecx
+ 210 01d2 75F6     	> jnz 0b
+ 211 01d4 C3       	    ret
+ 212              	
+ 213 01d5 E89DFFFF 	write: call seek
+ 213      FF
+ 214 01da B0C5     	    mov  al, 0x0c5 ;# write data
+ 215 01dc E862FFFF 	    call transfer
+ 215      FF
+ 216 01e1 66B90048 	    mov  cx, 18*2*512 ;#two heads, 18 sectors/track, 512 bytes/sector
+ 217 01e5 E84CFFFF 	0:  call ready
+ 217      FF
+ 218 01ea AC       	    lodsb
+ 219 01eb EE       	    out  dx, al
+ 220 01ec E6E1     	    out  0x0e1, al
+ 221              	    next 0b
+ 221 01ee 49       	> dec ecx
+ 221 01ef 75F4     	> jnz 0b
+ 222 01f1 C3       	    ret
+ 223              	
+ 224 01f2 00000000 	.org 0x1fe ;# mark boot sector
+ 224      00000000 
+ 224      00000000 
+ 225 01fe 55AA     	    .word 0x0aa55
+ 226              	;# end of boot sector
+ 227 0200 44444444 	    .long 0x44444444 ;# mark color.com
+ 228              	
+ 229 0204 A2270000 	flop: mov  cylinder, al ;# c-cx
+ 229      00
+ 230              	    dup_
+ 230 0209 8D76FC   	> lea esi,[esi-4]
+ 230 020c 8906     	> mov [esi],eax
+ 231 020e 66BAF203 	    mov  dx, 0x3f2
+ 232 0212 EC       	    in   al, dx
+ 233 0213 A810     	    test al, 0x10
+ 234 0215 7505     	    jnz  0f
+ 235 0217 E9EAFEFF 	    jmp  spin
+ 235      FF
+ 236 021c C3       	0:  ret
+ 237              	
+ 238 021d E8E2FFFF 	readf: call flop ;# ac-ac
+ 238      FF
+ 239 0222 57       	    push edi
+ 240 0223 8B7E04   	    mov  edi, [esi+4]
+ 241 0226 C1E702   	    shl  edi, 2
+ 242 0229 E88CFFFF 	    call read
+ 242      FF
+ 243 022e 5F       	    pop  edi
+ 244              	readf1: drop
+ 244 022f AD       	> lodsd
+ 245 0230 40       	    inc  eax
+ 246 0231 81060012 	    add  dword ptr [esi], 0x1200
+ 246      0000
+ 247 0237 C3       	    ret
+ 248              	
+ 249 0238 E8C7FFFF 	writef: call flop ;# ac-ac
+ 249      FF
+ 250 023d 56       	    push esi
+ 251 023e 8B7604   	    mov  esi, [esi+4]
+ 252 0241 C1E602   	    shl  esi, 2
+ 253 0244 E88CFFFF 	    call write
+ 253      FF
+ 254 0249 5E       	    pop  esi
+ 255 024a EBE3     	    jmp  readf1
+ 256              	
+ 257 024c E8B3FFFF 	seekf: call flop ;# c-c
+ 257      FF
+ 258              	;#    call delay
+ 259 0251 E821FFFF 	    call seek
+ 259      FF
+ 260 0256 B00F     	    mov  al, 0x0f
+ 261 0258 B103     	    mov  cl, 3
+ 262 025a E8E6FEFF 	    call cmd
+ 262      FF
+ 263 025f E8CAFEFF 	    call cmdi
+ 263      FF
+ 264              	    drop
+ 264 0264 AD       	> lodsd
+ 265 0265 C3       	    ret
+ 266              	
+ 267 0266 89C1     	cmdf: mov  ecx, eax ;# an
+ 268              	    drop
+ 268 0268 AD       	> lodsd
+ 269 0269 8D148500 	    lea  edx, [eax*4]
+ 269      000000
+ 270 0270 E8D8FEFF 	    call cmd0
+ 270      FF
+ 271              	    drop
+ 271 0275 AD       	> lodsd
+ 272 0276 C3       	    ret
+ 273              	
+ 274              	readyf: dup_
+ 274 0277 8D76FC   	> lea esi,[esi-4]
+ 274 027a 8906     	> mov [esi],eax
+ 275 027c E8B5FEFF 	    call ready
+ 275      FF
+ 276              	    drop
+ 276 0281 AD       	> lodsd
+ 277 0282 C3       	    ret
+  27              	
+  28              	;#   100000 dictionary
+  29              	;#    a0000 top of return stack
+  30              	;#    9f800 top of data stack
+  31              	;#    9d800 free
+  32              	;#    97000 floppy buffer
+  33              	;#     4800 source
+  34              	.equ icons, 12*256*4 ;# 3000
+  35              	;#     7c00 bios boot sector
+  36              	;#        0 forth
+  37              	
+  38              	warm: dup_
+  38 0283 8D76FC   	> lea esi,[esi-4]
+  38 0286 8906     	> mov [esi],eax
+  39 0288 8F05A41E 	start1: pop [displ]
+  39      0000
+  40              	;#    mov  screen, offset nul
+  41              	;#    xor  eax, eax
+  42 028e E8780000 	    call show0
+  42      00
+  43 0293 C705C407 	    mov dword ptr  forths,  offset ((forth1-forth0)/4)
+  43      00003B00 
+  43      0000
+  44 029d C705C007 	    mov dword ptr  macros,  offset ((macro1-macro0)/4)
+  44      00000600 
+  44      0000
+  45 02a7 B8120000 	    mov  eax, 18
+  45      00
+  46 02ac E8900400 	    call load
+  46      00
+  47 02b1 E97D2100 	    jmp  accept ;# wait for keyhit
+  47      00
+  48              	
+  49              	.equ gods, 0x28000*4 ;# 0x0a0000
+  50              	.equ godd, gods-750*4
+  51              	.equ mains, godd-1500*4
+  52              	.equ maind, mains-750*4
+  53 02b6 89F6     	.align 4
+  54 02b8 C5020000 	    me: .long god
+  55 02bc 00000000 	screen: .long 0 ;# logo
+  56              	
+  57 02c0 E8210000 	round: call unpause
+  57      00
+  58 02c5 00000000 	god:     .long 0 ;# gods-2*4
+  59 02c9 E8180000 	    call unpause
+  59      00
+  60 02ce 00000000 	main:    .long 0 ;# mains-2*4
+  61 02d2 EBEC     	    jmp  round
+  62              	
+  63              	pause: dup_
+  63 02d4 8D76FC   	> lea esi,[esi-4]
+  63 02d7 8906     	> mov [esi],eax
+  64 02d9 56       	    push esi
+  65 02da A1B80200 	    mov  eax, me
+  65      00
+  66 02df 8920     	    mov  [eax], esp
+  67 02e1 83C004   	    add  eax, 4
+  68 02e4 FFE0     	    jmp  eax
+  69              	
+  70 02e6 58       	unpause: pop  eax
+  71 02e7 8B20     	    mov  esp, [eax]
+  72 02e9 A3B80200 	    mov  me, eax
+  72      00
+  73 02ee 5E       	    pop  esi
+  74              	    drop
+  74 02ef AD       	> lodsd
+  75 02f0 C3       	    ret
+  76              	
+  77 02f1 BA1CD109 	act: mov  edx, maind-4
+  77      00
+  78 02f6 8902     	    mov  [edx], eax
+  79 02f8 B8D4DC09 	    mov  eax, mains-4
+  79      00
+  80 02fd 8F00     	    pop  [eax]
+  81 02ff 83E804   	    sub  eax, 4
+  82 0302 8910     	    mov  [eax], edx
+  83 0304 A3CE0200 	    mov  main, eax
+  83      00
+  84              	    drop
+  84 0309 AD       	> lodsd
+  85 030a C3       	    ret
+  86              	
+  87 030b E8010000 	show0: call show
+  87      00
+  88 0310 C3       	    ret
+  89 0311 8F05BC02 	show: pop  screen ;# pops address of 'ret' just preceding
+  89      0000
+  90              	    dup_
+  90 0317 8D76FC   	> lea esi,[esi-4]
+  90 031a 8906     	> mov [esi],eax
+  91 031c 31C0     	    xor  eax, eax
+  92 031e E8CEFFFF 	    call act
+  92      FF
+  93 0323 E8B91B00 	0:     call graphic
+  93      00
+  94 0328 FF15BC02 	        call [screen] ;# ret?
+  94      0000
+  95 032e E8AF1B00 	        call switch
+  95      00
+  96 0333 40       	        inc  eax
+  97 0334 EBED     	        jmp  0b
+  98              	
+  99 0336 BE4CF409 	c_:  mov  esi, godd+4
+  99      00
+ 100 033b C3       	    ret
+ 101              	
+ 102 033c 8B0DC007 	mark: mov  ecx, macros
+ 102      0000
+ 103 0342 890DA007 	    mov  mk, ecx
+ 103      0000
+ 104 0348 8B0DC407 	    mov  ecx, forths
+ 104      0000
+ 105 034e 890DA407 	    mov  mk+4, ecx
+ 105      0000
+ 106 0354 8B0DAC07 	    mov  ecx, h
+ 106      0000
+ 107 035a 890DA807 	    mov  mk+2*4, ecx
+ 107      0000
+ 108 0360 C3       	    ret
+ 109              	
+ 110 0361 8B0DA807 	empty: mov  ecx, mk+2*4
+ 110      0000
+ 111 0367 890DAC07 	    mov  h, ecx
+ 111      0000
+ 112 036d 8B0DA407 	    mov  ecx, mk+4
+ 112      0000
+ 113 0373 890DC407 	    mov  forths, ecx
+ 113      0000
+ 114 0379 8B0DA007 	    mov  ecx, mk
+ 114      0000
+ 115 037f 890DC007 	    mov  macros, ecx
+ 115      0000
+ 116 0385 C705B407 	    mov dword ptr  class, 0
+ 116      00000000 
+ 116      0000
+ 117 038f C3       	    ret
+ 118              	
+ 119 0390 8B0DC007 	mfind: mov  ecx, macros
+ 119      0000
+ 120 0396 57       	    push edi
+ 121 0397 8D3C8DC4 	    lea  edi, [macro0-4+ecx*4]
+ 121      070000
+ 122 039e EB0E     	    jmp  0f
+ 123              	
+ 124 03a0 8B0DC407 	find: mov  ecx, forths
+ 124      0000
+ 125 03a6 57       	    push edi
+ 126 03a7 8D3C8DDC 	    lea  edi, [forth0-4+ecx*4]
+ 126      090000
+ 127 03ae FD       	0: std
+ 128 03af F2AF     	    repne scasd
+ 129 03b1 FC       	    cld
+ 130 03b2 5F       	    pop  edi
+ 131 03b3 C3       	    ret
+ 132              	
+ 133 03b4 FF0D2C24 	ex1: dec dword ptr  words ;# from keyboard
+ 133      0000
+ 134 03ba 7403     	    jz   0f
+ 135              	        drop
+ 135 03bc AD       	> lodsd
+ 136 03bd EBF5     	        jmp  ex1
+ 137 03bf E8DCFFFF 	0: call find
+ 137      FF
+ 138 03c4 753F     	    jnz  abort1
+ 139              	        drop
+ 139 03c6 AD       	> lodsd
+ 140 03c7 FF248DE4 	        jmp  [forth2+ecx*4]
+ 140      140000
+ 141              	
+ 142 03ce C7059C07 	execute: mov dword ptr  lit, offset alit
+ 142      00008805 
+ 142      0000
+ 143              	    dup_
+ 143 03d8 8D76FC   	> lea esi,[esi-4]
+ 143 03db 8906     	> mov [esi],eax
+ 144 03dd 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 144      FFFFFF
+ 145 03e4 83E0F0   	ex2: and  eax, -020
+ 146 03e7 E8B4FFFF 	    call find
+ 146      FF
+ 147 03ec 7508     	    jnz  abort
+ 148              	        drop
+ 148 03ee AD       	> lodsd
+ 149 03ef FF248DE4 	        jmp  [forth2+ecx*4]
+ 149      140000
+ 150              	
+ 151 03f6 893D402A 	abort: mov  curs, edi
+ 151      0000
+ 152 03fc C1EF08   	    shr  edi, 10-2
+ 153 03ff 893D3C2A 	    mov  blk, edi
+ 153      0000
+ 154 0405 BC00000A 	abort1: mov  esp, gods
+ 154      00
+ 155 040a C7056807 	    mov dword ptr  spaces+3*4, offset forthd
+ 155      00006704 
+ 155      0000
+ 156 0414 C7056C07 	    mov dword ptr  spaces+4*4, offset qcompile
+ 156      0000BD05 
+ 156      0000
+ 157 041e C7057007 	    mov dword ptr  spaces+5*4, offset cnum
+ 157      00006105 
+ 157      0000
+ 158 0428 C7057407 	    mov dword ptr  spaces+6*4, offset cshort
+ 158      00007105 
+ 158      0000
+ 159 0432 B82F0000 	    mov  eax, 057 ;# ?
+ 159      00
+ 160 0437 E8A61C00 	    call echo_
+ 160      00
+ 161 043c E9F21F00 	    jmp  accept
+ 161      00
+ 162              	
+ 163 0441 8F056807 	sdefine: pop  adefine
+ 163      0000
+ 164 0447 C3       	    ret
+ 165 0448 E8F4FFFF 	macro_: call sdefine
+ 165      FF
+ 166 044d 8B0DC007 	macrod: mov  ecx, macros
+ 166      0000
+ 167 0453 FF05C007 	    inc dword ptr  macros
+ 167      0000
+ 168 0459 8D0C8DC8 	    lea  ecx, [macro0+ecx*4]
+ 168      070000
+ 169 0460 EB18     	    jmp  0f
+ 170              	
+ 171 0462 E8DAFFFF 	forth: call sdefine
+ 171      FF
+ 172 0467 8B0DC407 	forthd: mov  ecx, forths
+ 172      0000
+ 173 046d FF05C407 	    inc dword ptr  forths
+ 173      0000
+ 174 0473 8D0C8DE0 	    lea  ecx, [forth0+ecx*4]
+ 174      090000
+ 175 047a 8B14BDFC 	0: mov  edx, [-4+edi*4]
+ 175      FFFFFF
+ 176 0481 83E2F0   	    and  edx, -020
+ 177 0484 8911     	    mov  [ecx], edx
+ 178 0486 8B15AC07 	    mov  edx, h
+ 178      0000
+ 179 048c 8991040B 	    mov  [forth2-forth0+ecx], edx
+ 179      0000
+ 180 0492 8D91040B 	    lea  edx, [forth2-forth0+ecx]
+ 180      0000
+ 181 0498 C1EA02   	    shr  edx, 2
+ 182 049b 8915B007 	    mov  last, edx
+ 182      0000
+ 183 04a1 8925B807 	    mov  list, esp
+ 183      0000
+ 184 04a7 C7059C07 	    mov dword ptr  lit, offset adup
+ 184      00000D05 
+ 184      0000
+ 185 04b1 F705B407 	    test dword ptr class, -1
+ 185      0000FFFF 
+ 185      FFFF
+ 186 04bb 7406     	    jz   0f
+ 187 04bd FF25B407 	        jmp  [class]
+ 187      0000
+ 188 04c3 C3       	0: ret
+ 189              	
+ 190 04c4 8B15AC07 	cdrop: mov  edx, h
+ 190      0000
+ 191 04ca 8915B807 	    mov  list, edx
+ 191      0000
+ 192 04d0 C602AD   	    mov  byte ptr [edx], 0x0ad ;# lodsd
+ 193 04d3 FF05AC07 	    inc dword ptr  h
+ 193      0000
+ 194 04d9 C3       	    ret
+ 195              	
+ 196 04da 8B15AC07 	qdup: mov  edx, h
+ 196      0000
+ 197 04e0 4A       	    dec  edx
+ 198 04e1 3915B807 	    cmp  list, edx
+ 198      0000
+ 199 04e7 750C     	    jnz  cdup
+ 200 04e9 803AAD   	    cmp  byte ptr [edx], 0x0ad
+ 201 04ec 7507     	    jnz  cdup
+ 202 04ee 8915AC07 	        mov  h, edx
+ 202      0000
+ 203 04f4 C3       	        ret
+ 204 04f5 8B15AC07 	cdup: mov  edx, h
+ 204      0000
+ 205 04fb C7028D76 	    mov  dword ptr [edx], 0x89fc768d
+ 205      FC89
+ 206 0501 C6420406 	    mov  byte ptr [4+edx], 06
+ 207 0505 8305AC07 	    add dword ptr  h, 5
+ 207      000005
+ 208 050c C3       	    ret
+ 209              	
+ 210              	adup: dup_
+ 210 050d 8D76FC   	> lea esi,[esi-4]
+ 210 0510 8906     	> mov [esi],eax
+ 211 0512 C3       	    ret
+ 212              	
+ 213              	var1: dup_
+ 213 0513 8D76FC   	> lea esi,[esi-4]
+ 213 0516 8906     	> mov [esi],eax
+ 214 0518 8B048DE4 	    mov  eax, [4+forth0+ecx*4]
+ 214      090000
+ 215 051f C3       	    ret
+ 216 0520 E842FFFF 	variable: call forthd
+ 216      FF
+ 217 0525 C781040B 	    mov dword ptr  [forth2-forth0+ecx], offset var1
+ 217      00001305 
+ 217      0000
+ 218 052f FF05C407 	    inc dword ptr  forths ;# dummy entry for source address
+ 218      0000
+ 219 0535 897904   	    mov  [4+ecx], edi
+ 220 0538 E810FFFF 	    call macrod
+ 220      FF
+ 221 053d C781040B 	    mov dword ptr  [forth2-forth0+ecx], offset 0f
+ 221      00005205 
+ 221      0000
+ 222 0547 FF05C007 	    inc dword ptr  macros
+ 222      0000
+ 223 054d 897904   	    mov  [4+ecx], edi
+ 224 0550 47       	    inc  edi
+ 225 0551 C3       	    ret
+ 226 0552 FF159C07 	0: call [lit]
+ 226      0000
+ 227 0558 8B048DCC 	    mov  eax, [4+macro0+ecx*4]
+ 227      070000
+ 228 055f EB20     	    jmp  0f
+ 229              	
+ 230 0561 FF159C07 	cnum: call [lit]
+ 230      0000
+ 231 0567 8B04BD00 	    mov  eax, [edi*4]
+ 231      000000
+ 232 056e 47       	    inc  edi
+ 233 056f EB10     	    jmp  0f
+ 234              	
+ 235 0571 FF159C07 	cshort: call [lit]
+ 235      0000
+ 236 0577 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 236      FFFFFF
+ 237 057e C1F805   	    sar  eax, 5
+ 238 0581 E80C0000 	0: call literal
+ 238      00
+ 239              	    drop
+ 239 0586 AD       	> lodsd
+ 240 0587 C3       	    ret
+ 241              	
+ 242 0588 C7059C07 	alit: mov dword ptr lit, offset adup
+ 242      00000D05 
+ 242      0000
+ 243 0592 E843FFFF 	literal: call qdup
+ 243      FF
+ 244 0597 8B15B807 	    mov  edx, list
+ 244      0000
+ 245 059d 8915BC07 	    mov  list+4, edx
+ 245      0000
+ 246 05a3 8B15AC07 	    mov  edx, h
+ 246      0000
+ 247 05a9 8915B807 	    mov  list, edx
+ 247      0000
+ 248 05af C602B8   	    mov  byte ptr [edx], 0x0b8
+ 249 05b2 894201   	    mov  [1+edx], eax
+ 250 05b5 8305AC07 	    add dword ptr  h, 5
+ 250      000005
+ 251 05bc C3       	    ret
+ 252              	
+ 253 05bd FF159C07 	qcompile: call [lit]
+ 253      0000
+ 254 05c3 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 254      FFFFFF
+ 255 05ca 83E0F0   	    and  eax, -020
+ 256 05cd E8BEFDFF 	    call mfind
+ 256      FF
+ 257 05d2 7508     	    jnz  0f
+ 258              	        drop
+ 258 05d4 AD       	> lodsd
+ 259 05d5 FF248DCC 	        jmp  [macro2+ecx*4]
+ 259      120000
+ 260 05dc E8BFFDFF 	0: call find
+ 260      FF
+ 261 05e1 8B048DE4 	    mov  eax, [forth2+ecx*4]
+ 261      140000
+ 262 05e8 0F8508FE 	0: jnz  abort
+ 262      FFFF
+ 263 05ee 8B15AC07 	call_: mov  edx, h
+ 263      0000
+ 264 05f4 8915B807 	    mov  list, edx
+ 264      0000
+ 265 05fa C602E8   	    mov  byte ptr [edx], 0x0e8
+ 266 05fd 83C205   	    add  edx, 5
+ 267 0600 29D0     	    sub  eax, edx
+ 268 0602 8942FC   	    mov  [-4+edx], eax
+ 269 0605 8915AC07 	    mov  h, edx
+ 269      0000
+ 270              	    drop
+ 270 060b AD       	> lodsd
+ 271 060c C3       	    ret
+ 272              	
+ 273 060d FF159C07 	compile: call [lit]
+ 273      0000
+ 274 0613 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 274      FFFFFF
+ 275 061a 83E0F0   	    and  eax, -020
+ 276 061d E86EFDFF 	    call mfind
+ 276      FF
+ 277 0622 8B048DCC 	    mov  eax, [macro2+ecx*4]
+ 277      120000
+ 278 0629 EBBD     	    jmp  0b
+ 279              	
+ 280 062b C7059C07 	short_: mov dword ptr lit, offset alit
+ 280      00008805 
+ 280      0000
+ 281              	    dup_
+ 281 0635 8D76FC   	> lea esi,[esi-4]
+ 281 0638 8906     	> mov [esi],eax
+ 282 063a 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 282      FFFFFF
+ 283 0641 C1F805   	    sar  eax, 5
+ 284 0644 C3       	    ret
+ 285              	
+ 286 0645 C7059C07 	num: mov dword ptr lit, offset alit
+ 286      00008805 
+ 286      0000
+ 287              	    dup_
+ 287 064f 8D76FC   	> lea esi,[esi-4]
+ 287 0652 8906     	> mov [esi],eax
+ 288 0654 8B04BD00 	    mov  eax, [edi*4]
+ 288      000000
+ 289 065b 47       	    inc  edi
+ 290 065c C3       	    ret
+ 291              	
+ 292 065d B9040000 	comma: mov  ecx, 4
+ 292      00
+ 293 0662 8B15AC07 	0: mov  edx, h
+ 293      0000
+ 294 0668 8902     	    mov  [edx], eax
+ 295 066a 8B06     	    mov  eax, [esi] ;# drop
+ 296 066c 8D140A   	    lea  edx, [edx+ecx]
+ 297 066f 8D7604   	    lea  esi, [esi+4]
+ 298 0672 8915AC07 	    mov  h, edx
+ 298      0000
+ 299              	;#    drop
+ 300 0678 C3       	    ret
+ 301              	
+ 302 0679 B9010000 	comma1: mov  ecx, 1
+ 302      00
+ 303 067e EBE2     	    jmp  0b
+ 304              	
+ 305 0680 B9020000 	comma2: mov  ecx, 2
+ 305      00
+ 306 0685 EBDB     	    jmp  0b
+ 307              	
+ 308 0687 B9030000 	comma3: mov  ecx, 3
+ 308      00
+ 309 068c EBD4     	    jmp  0b
+ 310              	
+ 311 068e 8B15AC07 	semi: mov  edx, h
+ 311      0000
+ 312 0694 83EA05   	    sub  edx, 5
+ 313 0697 3915B807 	    cmp  list, edx
+ 313      0000
+ 314 069d 7508     	    jnz  0f
+ 315 069f 803AE8   	    cmp  byte ptr [edx], 0x0e8
+ 316 06a2 7503     	    jnz  0f
+ 317 06a4 FE02     	        inc  byte ptr [edx] ;# jmp
+ 318 06a6 C3       	        ret
+ 319 06a7 C64205C3 	0: mov  byte ptr [5+edx], 0x0c3 ;# ret
+ 320 06ab FF05AC07 	    inc dword ptr  h
+ 320      0000
+ 321 06b1 C3       	    ret
+ 322              	
+ 323 06b2 8925B807 	then: mov  list, esp
+ 323      0000
+ 324 06b8 8B15AC07 	    mov  edx, h
+ 324      0000
+ 325 06be 29C2     	    sub  edx, eax
+ 326 06c0 8850FF   	    mov  [-1+eax], dl
+ 327              	    drop
+ 327 06c3 AD       	> lodsd
+ 328 06c4 C3       	    ret
+ 329              	
+ 330 06c5 8925B807 	begin: mov  list, esp
+ 330      0000
+ 331              	here: dup_
+ 331 06cb 8D76FC   	> lea esi,[esi-4]
+ 331 06ce 8906     	> mov [esi],eax
+ 332 06d0 A1AC0700 	    mov  eax, h
+ 332      00
+ 333 06d5 C3       	    ret
+ 334              	
+ 335 06d6 8B15AC07 	qlit: mov  edx, h
+ 335      0000
+ 336 06dc 8D52FB   	    lea  edx, [edx-5]
+ 337 06df 3915B807 	    cmp  list, edx
+ 337      0000
+ 338 06e5 7533     	    jnz  0f
+ 339 06e7 803AB8   	    cmp  byte ptr [edx], 0x0b8
+ 340 06ea 752E     	    jnz  0f
+ 341              	        dup_
+ 341 06ec 8D76FC   	> lea esi,[esi-4]
+ 341 06ef 8906     	> mov [esi],eax
+ 342 06f1 A1BC0700 	        mov  eax, list+4
+ 342      00
+ 343 06f6 A3B80700 	        mov  list, eax
+ 343      00
+ 344 06fb 8B4201   	        mov  eax, [1+edx]
+ 345 06fe 817AFB8D 	        cmp  dword ptr [edx-5], 0x89fc768d ;# dup
+ 345      76FC89
+ 346 0705 740B     	        jz   q1
+ 347 0707 8915AC07 	            mov  h, edx
+ 347      0000
+ 348 070d E9B2FDFF 	            jmp  cdrop
+ 348      FF
+ 349 0712 8305AC07 	q1:     add dword ptr  h, -10 ;# flag nz
+ 349      0000F6
+ 350 0719 C3       	        ret
+ 351 071a 31D2     	0: xor  edx, edx ;# flag z
+ 352 071c C3       	    ret
+ 353              	
+ 354 071d 3906     	less: cmp  [esi], eax
+ 355 071f 7802     	    js   0f ;# flag nz
+ 356 0721 31C9     	        xor  ecx, ecx ;# flag z
+ 357 0723 C3       	0: ret
+ 358              	
+ 359 0724 F704BDFC 	qignore: test dword ptr [-4+edi*4], -020
+ 359      FFFFFFF0 
+ 359      FFFFFF
+ 360 072f 7502     	    jnz  nul
+ 361 0731 5F       	        pop  edi
+ 362 0732 5F       	        pop  edi
+ 363 0733 C3       	nul: ret
+ 364              	
+ 365 0734 5A       	jump: pop  edx
+ 366 0735 01C2     	    add  edx, eax
+ 367 0737 8D548205 	    lea  edx, [5+eax*4+edx]
+ 368 073b 0352FC   	    add  edx, [-4+edx]
+ 369              	    drop
+ 369 073e AD       	> lodsd
+ 370 073f FFE2     	    jmp  edx
+ 371              	
+ 372 0741 C1E008   	load: shl  eax, 10-2
+ 373 0744 57       	    push edi
+ 374 0745 89C7     	    mov  edi, eax
+ 375              	    drop
+ 375 0747 AD       	> lodsd
+ 376 0748 8B14BD00 	inter:  mov  edx, [edi*4]
+ 376      000000
+ 377 074f 47       	        inc  edi
+ 378 0750 83E20F   	        and  edx, 017 ;# get only low 4 bits
+ 379 0753 FF14955C 	        call spaces[edx*4]
+ 379      070000
+ 380 075a EBEC     	        jmp  inter
+ 381              	
+ 382              	.align 4
+ 383 075c 24070000 	 spaces: .long qignore, execute, num
+ 383      CE030000 
+ 383      45060000 
+ 384 0768 4D040000 	adefine: .long 5+macro_ ;# macrod ?
+ 385 076c BD050000 	        .long qcompile, cnum, cshort, compile
+ 385      61050000 
+ 385      71050000 
+ 385      0D060000 
+ 386 077c 2B060000 	        .long short_, nul, nul, nul
+ 386      33070000 
+ 386      33070000 
+ 386      33070000 
+ 387 078c 20050000 	        .long variable, nul, nul, nul
+ 387      33070000 
+ 387      33070000 
+ 387      33070000 
+ 388              	
+ 389 079c 0D050000 	   lit: .long adup
+ 390 07a0 00000000 	    mk: .long 0, 0, 0
+ 390      00000000 
+ 390      00000000 
+ 391 07ac 00001000 	     h: .long 0x40000*4
+ 392 07b0 00000000 	  last: .long 0
+ 393 07b4 00000000 	 class: .long 0
+ 394 07b8 00000000 	  list: .long 0, 0
+ 394      00000000 
+ 395 07c0 00000000 	macros: .long 0
+ 396 07c4 00000000 	forths: .long 0
+ 397              	;#macro0 .long (3 << 4+1)<< 24 ; or
+ 398              	;#       .long ((5 << 4+6)<< 7+0140)<< 17 ; and
+ 399              	;#       .long 0173 << 25 ; +
+ 400 07c8 000000F0 	macro0: .long 0170 << 25 ;# ;
+ 401 07cc 00109BC1 	       .long ((0140 << 7+0146)<< 7+0142)<< 11 ;# dup
+ 402 07d0 203683FF 	       .long (((0177 << 7+0140)<< 7+0146)<< 7+0142)<< 4 ;# ?dup
+ 403 07d4 008827C0 	       .long (((0140 << 4+1)<< 4+3)<< 7+0142)<< 10 ;# drop
+ 404              	;#       .long ((6 << 4+7)<< 7+0142)<< 17 ; nip
+ 405 07d8 00C0882C 	       .long (((2 << 7+0144)<< 4+4)<< 4+6)<< 13 ;# then
+ 406 07dc 007695C6 	       .long ((((0143 << 4+4)<< 5+025)<< 4+7)<< 4+6)<< 8 ;# begin
+ 407              	macro1: .rept 128 .long 0; .endr
+ 407 07e0 00000000 	> .long 0
+ 407 07e4 00000000 	> .long 0
+ 407 07e8 00000000 	> .long 0
+ 407 07ec 00000000 	> .long 0
+ 407 07f0 00000000 	> .long 0
+ 407 07f4 00000000 	> .long 0
+ 407 07f8 00000000 	> .long 0
+ 407 07fc 00000000 	> .long 0
+ 407 0800 00000000 	> .long 0
+ 407 0804 00000000 	> .long 0
+ 407 0808 00000000 	> .long 0
+ 407 080c 00000000 	> .long 0
+ 407 0810 00000000 	> .long 0
+ 407 0814 00000000 	> .long 0
+ 407 0818 00000000 	> .long 0
+ 407 081c 00000000 	> .long 0
+ 407 0820 00000000 	> .long 0
+ 407 0824 00000000 	> .long 0
+ 407 0828 00000000 	> .long 0
+ 407 082c 00000000 	> .long 0
+ 407 0830 00000000 	> .long 0
+ 407 0834 00000000 	> .long 0
+ 407 0838 00000000 	> .long 0
+ 407 083c 00000000 	> .long 0
+ 407 0840 00000000 	> .long 0
+ 407 0844 00000000 	> .long 0
+ 407 0848 00000000 	> .long 0
+ 407 084c 00000000 	> .long 0
+ 407 0850 00000000 	> .long 0
+ 407 0854 00000000 	> .long 0
+ 407 0858 00000000 	> .long 0
+ 407 085c 00000000 	> .long 0
+ 407 0860 00000000 	> .long 0
+ 407 0864 00000000 	> .long 0
+ 407 0868 00000000 	> .long 0
+ 407 086c 00000000 	> .long 0
+ 407 0870 00000000 	> .long 0
+ 407 0874 00000000 	> .long 0
+ 407 0878 00000000 	> .long 0
+ 407 087c 00000000 	> .long 0
+ 407 0880 00000000 	> .long 0
+ 407 0884 00000000 	> .long 0
+ 407 0888 00000000 	> .long 0
+ 407 088c 00000000 	> .long 0
+ 407 0890 00000000 	> .long 0
+ 407 0894 00000000 	> .long 0
+ 407 0898 00000000 	> .long 0
+ 407 089c 00000000 	> .long 0
+ 407 08a0 00000000 	> .long 0
+ 407 08a4 00000000 	> .long 0
+ 407 08a8 00000000 	> .long 0
+ 407 08ac 00000000 	> .long 0
+ 407 08b0 00000000 	> .long 0
+ 407 08b4 00000000 	> .long 0
+ 407 08b8 00000000 	> .long 0
+ 407 08bc 00000000 	> .long 0
+ 407 08c0 00000000 	> .long 0
+ 407 08c4 00000000 	> .long 0
+ 407 08c8 00000000 	> .long 0
+ 407 08cc 00000000 	> .long 0
+ 407 08d0 00000000 	> .long 0
+ 407 08d4 00000000 	> .long 0
+ 407 08d8 00000000 	> .long 0
+ 407 08dc 00000000 	> .long 0
+ 407 08e0 00000000 	> .long 0
+ 407 08e4 00000000 	> .long 0
+ 407 08e8 00000000 	> .long 0
+ 407 08ec 00000000 	> .long 0
+ 407 08f0 00000000 	> .long 0
+ 407 08f4 00000000 	> .long 0
+ 407 08f8 00000000 	> .long 0
+ 407 08fc 00000000 	> .long 0
+ 407 0900 00000000 	> .long 0
+ 407 0904 00000000 	> .long 0
+ 407 0908 00000000 	> .long 0
+ 407 090c 00000000 	> .long 0
+ 407 0910 00000000 	> .long 0
+ 407 0914 00000000 	> .long 0
+ 407 0918 00000000 	> .long 0
+ 407 091c 00000000 	> .long 0
+ 407 0920 00000000 	> .long 0
+ 407 0924 00000000 	> .long 0
+ 407 0928 00000000 	> .long 0
+ 407 092c 00000000 	> .long 0
+ 407 0930 00000000 	> .long 0
+ 407 0934 00000000 	> .long 0
+ 407 0938 00000000 	> .long 0
+ 407 093c 00000000 	> .long 0
+ 407 0940 00000000 	> .long 0
+ 407 0944 00000000 	> .long 0
+ 407 0948 00000000 	> .long 0
+ 407 094c 00000000 	> .long 0
+ 407 0950 00000000 	> .long 0
+ 407 0954 00000000 	> .long 0
+ 407 0958 00000000 	> .long 0
+ 407 095c 00000000 	> .long 0
+ 407 0960 00000000 	> .long 0
+ 407 0964 00000000 	> .long 0
+ 407 0968 00000000 	> .long 0
+ 407 096c 00000000 	> .long 0
+ 407 0970 00000000 	> .long 0
+ 407 0974 00000000 	> .long 0
+ 407 0978 00000000 	> .long 0
+ 407 097c 00000000 	> .long 0
+ 407 0980 00000000 	> .long 0
+ 407 0984 00000000 	> .long 0
+ 407 0988 00000000 	> .long 0
+ 407 098c 00000000 	> .long 0
+ 407 0990 00000000 	> .long 0
+ 407 0994 00000000 	> .long 0
+ 407 0998 00000000 	> .long 0
+ 407 099c 00000000 	> .long 0
+ 407 09a0 00000000 	> .long 0
+ 407 09a4 00000000 	> .long 0
+ 407 09a8 00000000 	> .long 0
+ 407 09ac 00000000 	> .long 0
+ 407 09b0 00000000 	> .long 0
+ 407 09b4 00000000 	> .long 0
+ 407 09b8 00000000 	> .long 0
+ 407 09bc 00000000 	> .long 0
+ 407 09c0 00000000 	> .long 0
+ 407 09c4 00000000 	> .long 0
+ 407 09c8 00000000 	> .long 0
+ 407 09cc 00000000 	> .long 0
+ 407 09d0 00000000 	> .long 0
+ 407 09d4 00000000 	> .long 0
+ 407 09d8 00000000 	> .long 0
+ 407 09dc 00000000 	> .long 0
+ 408 09e0 004066C6 	forth0: .long (((0143 << 4+3)<< 4+3)<< 4+2)<< 13 ;# boot
+ 409 09e4 00408CBA 	       .long (((027 << 4+5)<< 4+1)<< 5+021)<< 14 ;# warm
+ 410 09e8 80A0B9C4 	       .long ((((0142 << 4+5)<< 7+0146)<< 5+020)<< 4+4)<< 5 ;# pause
+ 411 09ec 004CC88A 	       .long ((((021 << 4+5)<< 5+022)<< 4+1)<< 4+3)<< 10 ;# .macro
+ 412 09f0 006489B1 	       .long ((((026 << 4+3)<< 4+1)<< 4+2)<< 7+0144)<< 8 ;# forth
+ 413 09f4 00000090 	       .long 022 << 27 ;# c
+ 414 09f8 00201E81 	       .long (((020 << 4+2)<< 4+3)<< 7+0142)<< 12 ;# stop
+ 415 09fc 00005C14 	       .long (((1 << 4+4)<< 4+5)<< 7+0140)<< 13 ;# read
+ 416 0a00 0020B9B8 	       .long ((((027 << 4+1)<< 4+7)<< 4+2)<< 4+4)<< 11 ;# write
+ 417 0a04 00000069 	       .long (6 << 5+022)<< 23 ;# nc
+ 418 0a08 C02AC691 	       .long (((((022 << 4+3)<< 5+021)<< 5+021)<< 4+5)<< 4+6)<< 5;# comman d
+ 419 0a0c 00402782 	       .long (((020 << 4+4)<< 4+4)<< 7+0164)<< 12 ;# seek
+ 420 0a10 00135C14 	       .long ((((1 << 4+4)<< 4+5)<< 7+0140)<< 5+023)<< 8 ;# ready
+ 421              	;#       .long (((022 << 5+024)<< 4+1)<< 4+7)<< 14 ; clri
+ 422 0a14 00001059 	       .long ((5 << 5+022)<< 4+2)<< 19 ;# act
+ 423 0a18 00B84386 	       .long (((020 << 7+0144)<< 4+3) << 5+027)<< 11 ;# show
+ 424 0a1c 0000AEA1 	       .long (((024 << 4+3)<< 4+5)<< 7+0140)<< 12 ;# load
+ 425 0a20 008082C8 	       .long (((0144 << 4+4)<< 4+1)<< 4+4)<< 13 ;# here
+ 426 0a24 002047FF 	       .long (((0177 << 5+024)<< 4+7)<< 4+2)<< 12 ;# ?lit
+ 427 0a28 0000F8D7 	       .long (0153 << 7+0176) << 18 ;# 3,
+ 428 0a2c 0000F8D5 	       .long (0152 << 7+0176) << 18 ;# 2,
+ 429 0a30 0000F8D3 	       .long (0151 << 7+0176) << 18 ;# 1,
+ 430 0a34 000000FC 	       .long 0176 << 25 ;# ,
+ 431 0a38 000042A2 	       .long (((024 << 4+4)<< 5+020)<< 5+020)<< 13 ;# less
+ 432 0a3c 80389AE5 	       .long (((0162 << 7+0146)<< 5+021)<< 7+0142)<< 6 ;# jump
+ 433 0a40 10314959 	       .long (((((5 << 5+022)<< 5+022)<< 4+4)<< 7+0142)<< 4+2)<< 3 ;# accept
+ 434 0a44 0000B8C4 	       .long ((0142 << 4+5)<< 7+0140)<< 14 ;# pad
+ 435 0a48 00205841 	       .long ((((4 << 4+1)<< 4+5)<< 5+020)<< 4+4)<< 11 ;# erase
+ 436 0a4c 0098E291 	       .long (((022 << 4+3)<< 7+0142)<< 5+023)<< 11 ;# copy
+ 437 0a50 00408F8A 	       .long (((021 << 4+5)<< 4+1)<< 7+0164)<< 12 ;# mark
+ 438 0a54 0020E248 	       .long (((4 << 5+021)<< 7+0142)<< 4+2)<< 12 ;# empt
+ 439 0a58 0000B948 	       .long (((4 << 5+021)<< 4+7)<< 4+2)<< 15 ;# emit
+ 440 0a5c 0072F5C0 	       .long ((((0140 << 4+7)<< 5+025)<< 4+7)<< 4+2)<< 8 ;# digit
+ 441 0a60 007291D4 	       .long ((((0152 << 4+4)<< 5+021)<< 4+7)<< 4+2)<< 8 ;# 2emit
+ 442 0a64 000000EA 	       .long 0165 << 25 ;# .
+ 443 0a68 0000D4C9 	       .long (0144 << 7+0165)<< 18 ;# h.
+ 444 0a6c 0080D5C9 	       .long ((0144 << 7+0165)<< 4+6)<< 14 ;# h.n
+ 445 0a70 00008090 	       .long (022 << 4+1)<< 23 ;# cr
+ 446 0a74 00922586 	       .long ((((020 << 7+0142)<< 4+5)<< 5+022)<< 4+4)<< 7 ;# space
+ 447 0a78 006077C0 	       .long (((0140 << 4+3)<< 5+027)<< 4+6)<< 12 ;# down
+ 448 0a7c 00400E4C 	       .long (((4 << 7+0140)<< 4+7)<< 4+2)<< 13 ;# edit
+ 449 0a80 00000040 	       .long 4 << 28 ;# e
+ 450              	;#       .long (((026 << 4+3)<< 4+6)<< 4+2)<< 15 ; font
+ 451 0a84 000040A4 	       .long (024 << 5+021)<< 22 ;# lm
+ 452 0a88 00008018 	       .long (1 << 5+021)<< 23 ;# rm
+ 453 0a8c 802CAEA8 	       .long ((((025 << 4+1)<< 4+5)<< 7+0142)<< 7+0144)<< 5 ;# graph ic
+ 454 0a90 0040CA24 	       .long (((2 << 4+4)<< 7+0145)<< 4+2)<< 13 ;# text
+ 455              	;#       .long (0153 << 7+0140)<< 18 ; 3d
+ 456              	;#       .long (((((1 << 4+4)<< 4+6)<< 7+0140)<< 4+4)<< 4+1)<< 5 ; render
+ 457              	;#       .long ((((0141 << 4+4)<< 4+1)<< 4+2)<< 4+4)<< 9 ; verte x
+ 458              	;#       .long ((((026 << 4+1)<< 4+3)<< 4+6)<< 4+2)<< 11 ; front
+ 459              	;#       .long ((2 << 4+3)<< 7+0142)<< 17 ; top
+ 460              	;#       .long (((020 << 4+7)<< 7+0140)<< 4+4)<< 12 ; side
+ 461 0a94 60C693E8 	       .long ((((0164 << 4+4)<< 5+023)<< 7+0143)<< 4+3)<< 5 ;# keybo ard
+ 462 0a98 00F398C0 	       .long (((0140 << 4+4)<< 7+0143)<< 7+0146)<< 7 ;# debu g
+ 463 0a9c 00000052 	       .long (5 << 4+2)<< 24 ;# at
+ 464 0aa0 0000A4F6 	       .long ((0173 << 4+5)<< 4+2)<< 17 ;# +at
+ 465 0aa4 000030CB 	       .long (0145 << 5+023)<< 20 ;# xy
+ 466 0aa8 0000E1B1 	       .long ((026 << 4+3)<< 7+0141)<< 16 ;# fov
+ 467 0aac 00C0D8B3 	       .long (((026 << 4+7)<< 5+026)<< 4+3)<< 14 ;# fifo
+ 468 0ab0 004079C6 	       .long ((0143 << 4+3)<< 7+0145)<< 14 ;# box
+ 469 0ab4 0000B2A3 	       .long (((024 << 4+7)<< 4+6)<< 4+4)<< 15 ;# line
+ 470 0ab8 00C4D091 	       .long ((((022 << 4+3)<< 5+024)<< 4+3)<< 4+1)<< 10 ;# color
+ 471              	;#       .long (((022 << 5+024)<< 4+7)<< 7+0142)<< 11 ; clip
+ 472 0abc 00B11239 	       .long (((((3 << 5+022)<< 4+2)<< 4+5)<< 4+6)<< 4+2)<< 7 ;# octant
+ 473 0ac0 00002086 	       .long (020 << 7+0142)<< 20 ;# sp
+ 474 0ac4 0080C0A2 	       .long (((024 << 4+5)<< 5+020)<< 4+2)<< 14 ;# last
+ 475 0ac8 4096D8CC 	       .long (((((0146 << 4+6)<< 7+0142)<< 4+5)<< 5+022))<< 5 ;# unpac k
+ 476              	;#       .long (((0142 << 4+5)<< 5+022)<< 7+0164)<< 9 ; pack
+ 477              	forth1: .rept 512 .long 0; .endr
+ 477 0acc 00000000 	> .long 0
+ 477 0ad0 00000000 	> .long 0
+ 477 0ad4 00000000 	> .long 0
+ 477 0ad8 00000000 	> .long 0
+ 477 0adc 00000000 	> .long 0
+ 477 0ae0 00000000 	> .long 0
+ 477 0ae4 00000000 	> .long 0
+ 477 0ae8 00000000 	> .long 0
+ 477 0aec 00000000 	> .long 0
+ 477 0af0 00000000 	> .long 0
+ 477 0af4 00000000 	> .long 0
+ 477 0af8 00000000 	> .long 0
+ 477 0afc 00000000 	> .long 0
+ 477 0b00 00000000 	> .long 0
+ 477 0b04 00000000 	> .long 0
+ 477 0b08 00000000 	> .long 0
+ 477 0b0c 00000000 	> .long 0
+ 477 0b10 00000000 	> .long 0
+ 477 0b14 00000000 	> .long 0
+ 477 0b18 00000000 	> .long 0
+ 477 0b1c 00000000 	> .long 0
+ 477 0b20 00000000 	> .long 0
+ 477 0b24 00000000 	> .long 0
+ 477 0b28 00000000 	> .long 0
+ 477 0b2c 00000000 	> .long 0
+ 477 0b30 00000000 	> .long 0
+ 477 0b34 00000000 	> .long 0
+ 477 0b38 00000000 	> .long 0
+ 477 0b3c 00000000 	> .long 0
+ 477 0b40 00000000 	> .long 0
+ 477 0b44 00000000 	> .long 0
+ 477 0b48 00000000 	> .long 0
+ 477 0b4c 00000000 	> .long 0
+ 477 0b50 00000000 	> .long 0
+ 477 0b54 00000000 	> .long 0
+ 477 0b58 00000000 	> .long 0
+ 477 0b5c 00000000 	> .long 0
+ 477 0b60 00000000 	> .long 0
+ 477 0b64 00000000 	> .long 0
+ 477 0b68 00000000 	> .long 0
+ 477 0b6c 00000000 	> .long 0
+ 477 0b70 00000000 	> .long 0
+ 477 0b74 00000000 	> .long 0
+ 477 0b78 00000000 	> .long 0
+ 477 0b7c 00000000 	> .long 0
+ 477 0b80 00000000 	> .long 0
+ 477 0b84 00000000 	> .long 0
+ 477 0b88 00000000 	> .long 0
+ 477 0b8c 00000000 	> .long 0
+ 477 0b90 00000000 	> .long 0
+ 477 0b94 00000000 	> .long 0
+ 477 0b98 00000000 	> .long 0
+ 477 0b9c 00000000 	> .long 0
+ 477 0ba0 00000000 	> .long 0
+ 477 0ba4 00000000 	> .long 0
+ 477 0ba8 00000000 	> .long 0
+ 477 0bac 00000000 	> .long 0
+ 477 0bb0 00000000 	> .long 0
+ 477 0bb4 00000000 	> .long 0
+ 477 0bb8 00000000 	> .long 0
+ 477 0bbc 00000000 	> .long 0
+ 477 0bc0 00000000 	> .long 0
+ 477 0bc4 00000000 	> .long 0
+ 477 0bc8 00000000 	> .long 0
+ 477 0bcc 00000000 	> .long 0
+ 477 0bd0 00000000 	> .long 0
+ 477 0bd4 00000000 	> .long 0
+ 477 0bd8 00000000 	> .long 0
+ 477 0bdc 00000000 	> .long 0
+ 477 0be0 00000000 	> .long 0
+ 477 0be4 00000000 	> .long 0
+ 477 0be8 00000000 	> .long 0
+ 477 0bec 00000000 	> .long 0
+ 477 0bf0 00000000 	> .long 0
+ 477 0bf4 00000000 	> .long 0
+ 477 0bf8 00000000 	> .long 0
+ 477 0bfc 00000000 	> .long 0
+ 477 0c00 00000000 	> .long 0
+ 477 0c04 00000000 	> .long 0
+ 477 0c08 00000000 	> .long 0
+ 477 0c0c 00000000 	> .long 0
+ 477 0c10 00000000 	> .long 0
+ 477 0c14 00000000 	> .long 0
+ 477 0c18 00000000 	> .long 0
+ 477 0c1c 00000000 	> .long 0
+ 477 0c20 00000000 	> .long 0
+ 477 0c24 00000000 	> .long 0
+ 477 0c28 00000000 	> .long 0
+ 477 0c2c 00000000 	> .long 0
+ 477 0c30 00000000 	> .long 0
+ 477 0c34 00000000 	> .long 0
+ 477 0c38 00000000 	> .long 0
+ 477 0c3c 00000000 	> .long 0
+ 477 0c40 00000000 	> .long 0
+ 477 0c44 00000000 	> .long 0
+ 477 0c48 00000000 	> .long 0
+ 477 0c4c 00000000 	> .long 0
+ 477 0c50 00000000 	> .long 0
+ 477 0c54 00000000 	> .long 0
+ 477 0c58 00000000 	> .long 0
+ 477 0c5c 00000000 	> .long 0
+ 477 0c60 00000000 	> .long 0
+ 477 0c64 00000000 	> .long 0
+ 477 0c68 00000000 	> .long 0
+ 477 0c6c 00000000 	> .long 0
+ 477 0c70 00000000 	> .long 0
+ 477 0c74 00000000 	> .long 0
+ 477 0c78 00000000 	> .long 0
+ 477 0c7c 00000000 	> .long 0
+ 477 0c80 00000000 	> .long 0
+ 477 0c84 00000000 	> .long 0
+ 477 0c88 00000000 	> .long 0
+ 477 0c8c 00000000 	> .long 0
+ 477 0c90 00000000 	> .long 0
+ 477 0c94 00000000 	> .long 0
+ 477 0c98 00000000 	> .long 0
+ 477 0c9c 00000000 	> .long 0
+ 477 0ca0 00000000 	> .long 0
+ 477 0ca4 00000000 	> .long 0
+ 477 0ca8 00000000 	> .long 0
+ 477 0cac 00000000 	> .long 0
+ 477 0cb0 00000000 	> .long 0
+ 477 0cb4 00000000 	> .long 0
+ 477 0cb8 00000000 	> .long 0
+ 477 0cbc 00000000 	> .long 0
+ 477 0cc0 00000000 	> .long 0
+ 477 0cc4 00000000 	> .long 0
+ 477 0cc8 00000000 	> .long 0
+ 477 0ccc 00000000 	> .long 0
+ 477 0cd0 00000000 	> .long 0
+ 477 0cd4 00000000 	> .long 0
+ 477 0cd8 00000000 	> .long 0
+ 477 0cdc 00000000 	> .long 0
+ 477 0ce0 00000000 	> .long 0
+ 477 0ce4 00000000 	> .long 0
+ 477 0ce8 00000000 	> .long 0
+ 477 0cec 00000000 	> .long 0
+ 477 0cf0 00000000 	> .long 0
+ 477 0cf4 00000000 	> .long 0
+ 477 0cf8 00000000 	> .long 0
+ 477 0cfc 00000000 	> .long 0
+ 477 0d00 00000000 	> .long 0
+ 477 0d04 00000000 	> .long 0
+ 477 0d08 00000000 	> .long 0
+ 477 0d0c 00000000 	> .long 0
+ 477 0d10 00000000 	> .long 0
+ 477 0d14 00000000 	> .long 0
+ 477 0d18 00000000 	> .long 0
+ 477 0d1c 00000000 	> .long 0
+ 477 0d20 00000000 	> .long 0
+ 477 0d24 00000000 	> .long 0
+ 477 0d28 00000000 	> .long 0
+ 477 0d2c 00000000 	> .long 0
+ 477 0d30 00000000 	> .long 0
+ 477 0d34 00000000 	> .long 0
+ 477 0d38 00000000 	> .long 0
+ 477 0d3c 00000000 	> .long 0
+ 477 0d40 00000000 	> .long 0
+ 477 0d44 00000000 	> .long 0
+ 477 0d48 00000000 	> .long 0
+ 477 0d4c 00000000 	> .long 0
+ 477 0d50 00000000 	> .long 0
+ 477 0d54 00000000 	> .long 0
+ 477 0d58 00000000 	> .long 0
+ 477 0d5c 00000000 	> .long 0
+ 477 0d60 00000000 	> .long 0
+ 477 0d64 00000000 	> .long 0
+ 477 0d68 00000000 	> .long 0
+ 477 0d6c 00000000 	> .long 0
+ 477 0d70 00000000 	> .long 0
+ 477 0d74 00000000 	> .long 0
+ 477 0d78 00000000 	> .long 0
+ 477 0d7c 00000000 	> .long 0
+ 477 0d80 00000000 	> .long 0
+ 477 0d84 00000000 	> .long 0
+ 477 0d88 00000000 	> .long 0
+ 477 0d8c 00000000 	> .long 0
+ 477 0d90 00000000 	> .long 0
+ 477 0d94 00000000 	> .long 0
+ 477 0d98 00000000 	> .long 0
+ 477 0d9c 00000000 	> .long 0
+ 477 0da0 00000000 	> .long 0
+ 477 0da4 00000000 	> .long 0
+ 477 0da8 00000000 	> .long 0
+ 477 0dac 00000000 	> .long 0
+ 477 0db0 00000000 	> .long 0
+ 477 0db4 00000000 	> .long 0
+ 477 0db8 00000000 	> .long 0
+ 477 0dbc 00000000 	> .long 0
+ 477 0dc0 00000000 	> .long 0
+ 477 0dc4 00000000 	> .long 0
+ 477 0dc8 00000000 	> .long 0
+ 477 0dcc 00000000 	> .long 0
+ 477 0dd0 00000000 	> .long 0
+ 477 0dd4 00000000 	> .long 0
+ 477 0dd8 00000000 	> .long 0
+ 477 0ddc 00000000 	> .long 0
+ 477 0de0 00000000 	> .long 0
+ 477 0de4 00000000 	> .long 0
+ 477 0de8 00000000 	> .long 0
+ 477 0dec 00000000 	> .long 0
+ 477 0df0 00000000 	> .long 0
+ 477 0df4 00000000 	> .long 0
+ 477 0df8 00000000 	> .long 0
+ 477 0dfc 00000000 	> .long 0
+ 477 0e00 00000000 	> .long 0
+ 477 0e04 00000000 	> .long 0
+ 477 0e08 00000000 	> .long 0
+ 477 0e0c 00000000 	> .long 0
+ 477 0e10 00000000 	> .long 0
+ 477 0e14 00000000 	> .long 0
+ 477 0e18 00000000 	> .long 0
+ 477 0e1c 00000000 	> .long 0
+ 477 0e20 00000000 	> .long 0
+ 477 0e24 00000000 	> .long 0
+ 477 0e28 00000000 	> .long 0
+ 477 0e2c 00000000 	> .long 0
+ 477 0e30 00000000 	> .long 0
+ 477 0e34 00000000 	> .long 0
+ 477 0e38 00000000 	> .long 0
+ 477 0e3c 00000000 	> .long 0
+ 477 0e40 00000000 	> .long 0
+ 477 0e44 00000000 	> .long 0
+ 477 0e48 00000000 	> .long 0
+ 477 0e4c 00000000 	> .long 0
+ 477 0e50 00000000 	> .long 0
+ 477 0e54 00000000 	> .long 0
+ 477 0e58 00000000 	> .long 0
+ 477 0e5c 00000000 	> .long 0
+ 477 0e60 00000000 	> .long 0
+ 477 0e64 00000000 	> .long 0
+ 477 0e68 00000000 	> .long 0
+ 477 0e6c 00000000 	> .long 0
+ 477 0e70 00000000 	> .long 0
+ 477 0e74 00000000 	> .long 0
+ 477 0e78 00000000 	> .long 0
+ 477 0e7c 00000000 	> .long 0
+ 477 0e80 00000000 	> .long 0
+ 477 0e84 00000000 	> .long 0
+ 477 0e88 00000000 	> .long 0
+ 477 0e8c 00000000 	> .long 0
+ 477 0e90 00000000 	> .long 0
+ 477 0e94 00000000 	> .long 0
+ 477 0e98 00000000 	> .long 0
+ 477 0e9c 00000000 	> .long 0
+ 477 0ea0 00000000 	> .long 0
+ 477 0ea4 00000000 	> .long 0
+ 477 0ea8 00000000 	> .long 0
+ 477 0eac 00000000 	> .long 0
+ 477 0eb0 00000000 	> .long 0
+ 477 0eb4 00000000 	> .long 0
+ 477 0eb8 00000000 	> .long 0
+ 477 0ebc 00000000 	> .long 0
+ 477 0ec0 00000000 	> .long 0
+ 477 0ec4 00000000 	> .long 0
+ 477 0ec8 00000000 	> .long 0
+ 477 0ecc 00000000 	> .long 0
+ 477 0ed0 00000000 	> .long 0
+ 477 0ed4 00000000 	> .long 0
+ 477 0ed8 00000000 	> .long 0
+ 477 0edc 00000000 	> .long 0
+ 477 0ee0 00000000 	> .long 0
+ 477 0ee4 00000000 	> .long 0
+ 477 0ee8 00000000 	> .long 0
+ 477 0eec 00000000 	> .long 0
+ 477 0ef0 00000000 	> .long 0
+ 477 0ef4 00000000 	> .long 0
+ 477 0ef8 00000000 	> .long 0
+ 477 0efc 00000000 	> .long 0
+ 477 0f00 00000000 	> .long 0
+ 477 0f04 00000000 	> .long 0
+ 477 0f08 00000000 	> .long 0
+ 477 0f0c 00000000 	> .long 0
+ 477 0f10 00000000 	> .long 0
+ 477 0f14 00000000 	> .long 0
+ 477 0f18 00000000 	> .long 0
+ 477 0f1c 00000000 	> .long 0
+ 477 0f20 00000000 	> .long 0
+ 477 0f24 00000000 	> .long 0
+ 477 0f28 00000000 	> .long 0
+ 477 0f2c 00000000 	> .long 0
+ 477 0f30 00000000 	> .long 0
+ 477 0f34 00000000 	> .long 0
+ 477 0f38 00000000 	> .long 0
+ 477 0f3c 00000000 	> .long 0
+ 477 0f40 00000000 	> .long 0
+ 477 0f44 00000000 	> .long 0
+ 477 0f48 00000000 	> .long 0
+ 477 0f4c 00000000 	> .long 0
+ 477 0f50 00000000 	> .long 0
+ 477 0f54 00000000 	> .long 0
+ 477 0f58 00000000 	> .long 0
+ 477 0f5c 00000000 	> .long 0
+ 477 0f60 00000000 	> .long 0
+ 477 0f64 00000000 	> .long 0
+ 477 0f68 00000000 	> .long 0
+ 477 0f6c 00000000 	> .long 0
+ 477 0f70 00000000 	> .long 0
+ 477 0f74 00000000 	> .long 0
+ 477 0f78 00000000 	> .long 0
+ 477 0f7c 00000000 	> .long 0
+ 477 0f80 00000000 	> .long 0
+ 477 0f84 00000000 	> .long 0
+ 477 0f88 00000000 	> .long 0
+ 477 0f8c 00000000 	> .long 0
+ 477 0f90 00000000 	> .long 0
+ 477 0f94 00000000 	> .long 0
+ 477 0f98 00000000 	> .long 0
+ 477 0f9c 00000000 	> .long 0
+ 477 0fa0 00000000 	> .long 0
+ 477 0fa4 00000000 	> .long 0
+ 477 0fa8 00000000 	> .long 0
+ 477 0fac 00000000 	> .long 0
+ 477 0fb0 00000000 	> .long 0
+ 477 0fb4 00000000 	> .long 0
+ 477 0fb8 00000000 	> .long 0
+ 477 0fbc 00000000 	> .long 0
+ 477 0fc0 00000000 	> .long 0
+ 477 0fc4 00000000 	> .long 0
+ 477 0fc8 00000000 	> .long 0
+ 477 0fcc 00000000 	> .long 0
+ 477 0fd0 00000000 	> .long 0
+ 477 0fd4 00000000 	> .long 0
+ 477 0fd8 00000000 	> .long 0
+ 477 0fdc 00000000 	> .long 0
+ 477 0fe0 00000000 	> .long 0
+ 477 0fe4 00000000 	> .long 0
+ 477 0fe8 00000000 	> .long 0
+ 477 0fec 00000000 	> .long 0
+ 477 0ff0 00000000 	> .long 0
+ 477 0ff4 00000000 	> .long 0
+ 477 0ff8 00000000 	> .long 0
+ 477 0ffc 00000000 	> .long 0
+ 477 1000 00000000 	> .long 0
+ 477 1004 00000000 	> .long 0
+ 477 1008 00000000 	> .long 0
+ 477 100c 00000000 	> .long 0
+ 477 1010 00000000 	> .long 0
+ 477 1014 00000000 	> .long 0
+ 477 1018 00000000 	> .long 0
+ 477 101c 00000000 	> .long 0
+ 477 1020 00000000 	> .long 0
+ 477 1024 00000000 	> .long 0
+ 477 1028 00000000 	> .long 0
+ 477 102c 00000000 	> .long 0
+ 477 1030 00000000 	> .long 0
+ 477 1034 00000000 	> .long 0
+ 477 1038 00000000 	> .long 0
+ 477 103c 00000000 	> .long 0
+ 477 1040 00000000 	> .long 0
+ 477 1044 00000000 	> .long 0
+ 477 1048 00000000 	> .long 0
+ 477 104c 00000000 	> .long 0
+ 477 1050 00000000 	> .long 0
+ 477 1054 00000000 	> .long 0
+ 477 1058 00000000 	> .long 0
+ 477 105c 00000000 	> .long 0
+ 477 1060 00000000 	> .long 0
+ 477 1064 00000000 	> .long 0
+ 477 1068 00000000 	> .long 0
+ 477 106c 00000000 	> .long 0
+ 477 1070 00000000 	> .long 0
+ 477 1074 00000000 	> .long 0
+ 477 1078 00000000 	> .long 0
+ 477 107c 00000000 	> .long 0
+ 477 1080 00000000 	> .long 0
+ 477 1084 00000000 	> .long 0
+ 477 1088 00000000 	> .long 0
+ 477 108c 00000000 	> .long 0
+ 477 1090 00000000 	> .long 0
+ 477 1094 00000000 	> .long 0
+ 477 1098 00000000 	> .long 0
+ 477 109c 00000000 	> .long 0
+ 477 10a0 00000000 	> .long 0
+ 477 10a4 00000000 	> .long 0
+ 477 10a8 00000000 	> .long 0
+ 477 10ac 00000000 	> .long 0
+ 477 10b0 00000000 	> .long 0
+ 477 10b4 00000000 	> .long 0
+ 477 10b8 00000000 	> .long 0
+ 477 10bc 00000000 	> .long 0
+ 477 10c0 00000000 	> .long 0
+ 477 10c4 00000000 	> .long 0
+ 477 10c8 00000000 	> .long 0
+ 477 10cc 00000000 	> .long 0
+ 477 10d0 00000000 	> .long 0
+ 477 10d4 00000000 	> .long 0
+ 477 10d8 00000000 	> .long 0
+ 477 10dc 00000000 	> .long 0
+ 477 10e0 00000000 	> .long 0
+ 477 10e4 00000000 	> .long 0
+ 477 10e8 00000000 	> .long 0
+ 477 10ec 00000000 	> .long 0
+ 477 10f0 00000000 	> .long 0
+ 477 10f4 00000000 	> .long 0
+ 477 10f8 00000000 	> .long 0
+ 477 10fc 00000000 	> .long 0
+ 477 1100 00000000 	> .long 0
+ 477 1104 00000000 	> .long 0
+ 477 1108 00000000 	> .long 0
+ 477 110c 00000000 	> .long 0
+ 477 1110 00000000 	> .long 0
+ 477 1114 00000000 	> .long 0
+ 477 1118 00000000 	> .long 0
+ 477 111c 00000000 	> .long 0
+ 477 1120 00000000 	> .long 0
+ 477 1124 00000000 	> .long 0
+ 477 1128 00000000 	> .long 0
+ 477 112c 00000000 	> .long 0
+ 477 1130 00000000 	> .long 0
+ 477 1134 00000000 	> .long 0
+ 477 1138 00000000 	> .long 0
+ 477 113c 00000000 	> .long 0
+ 477 1140 00000000 	> .long 0
+ 477 1144 00000000 	> .long 0
+ 477 1148 00000000 	> .long 0
+ 477 114c 00000000 	> .long 0
+ 477 1150 00000000 	> .long 0
+ 477 1154 00000000 	> .long 0
+ 477 1158 00000000 	> .long 0
+ 477 115c 00000000 	> .long 0
+ 477 1160 00000000 	> .long 0
+ 477 1164 00000000 	> .long 0
+ 477 1168 00000000 	> .long 0
+ 477 116c 00000000 	> .long 0
+ 477 1170 00000000 	> .long 0
+ 477 1174 00000000 	> .long 0
+ 477 1178 00000000 	> .long 0
+ 477 117c 00000000 	> .long 0
+ 477 1180 00000000 	> .long 0
+ 477 1184 00000000 	> .long 0
+ 477 1188 00000000 	> .long 0
+ 477 118c 00000000 	> .long 0
+ 477 1190 00000000 	> .long 0
+ 477 1194 00000000 	> .long 0
+ 477 1198 00000000 	> .long 0
+ 477 119c 00000000 	> .long 0
+ 477 11a0 00000000 	> .long 0
+ 477 11a4 00000000 	> .long 0
+ 477 11a8 00000000 	> .long 0
+ 477 11ac 00000000 	> .long 0
+ 477 11b0 00000000 	> .long 0
+ 477 11b4 00000000 	> .long 0
+ 477 11b8 00000000 	> .long 0
+ 477 11bc 00000000 	> .long 0
+ 477 11c0 00000000 	> .long 0
+ 477 11c4 00000000 	> .long 0
+ 477 11c8 00000000 	> .long 0
+ 477 11cc 00000000 	> .long 0
+ 477 11d0 00000000 	> .long 0
+ 477 11d4 00000000 	> .long 0
+ 477 11d8 00000000 	> .long 0
+ 477 11dc 00000000 	> .long 0
+ 477 11e0 00000000 	> .long 0
+ 477 11e4 00000000 	> .long 0
+ 477 11e8 00000000 	> .long 0
+ 477 11ec 00000000 	> .long 0
+ 477 11f0 00000000 	> .long 0
+ 477 11f4 00000000 	> .long 0
+ 477 11f8 00000000 	> .long 0
+ 477 11fc 00000000 	> .long 0
+ 477 1200 00000000 	> .long 0
+ 477 1204 00000000 	> .long 0
+ 477 1208 00000000 	> .long 0
+ 477 120c 00000000 	> .long 0
+ 477 1210 00000000 	> .long 0
+ 477 1214 00000000 	> .long 0
+ 477 1218 00000000 	> .long 0
+ 477 121c 00000000 	> .long 0
+ 477 1220 00000000 	> .long 0
+ 477 1224 00000000 	> .long 0
+ 477 1228 00000000 	> .long 0
+ 477 122c 00000000 	> .long 0
+ 477 1230 00000000 	> .long 0
+ 477 1234 00000000 	> .long 0
+ 477 1238 00000000 	> .long 0
+ 477 123c 00000000 	> .long 0
+ 477 1240 00000000 	> .long 0
+ 477 1244 00000000 	> .long 0
+ 477 1248 00000000 	> .long 0
+ 477 124c 00000000 	> .long 0
+ 477 1250 00000000 	> .long 0
+ 477 1254 00000000 	> .long 0
+ 477 1258 00000000 	> .long 0
+ 477 125c 00000000 	> .long 0
+ 477 1260 00000000 	> .long 0
+ 477 1264 00000000 	> .long 0
+ 477 1268 00000000 	> .long 0
+ 477 126c 00000000 	> .long 0
+ 477 1270 00000000 	> .long 0
+ 477 1274 00000000 	> .long 0
+ 477 1278 00000000 	> .long 0
+ 477 127c 00000000 	> .long 0
+ 477 1280 00000000 	> .long 0
+ 477 1284 00000000 	> .long 0
+ 477 1288 00000000 	> .long 0
+ 477 128c 00000000 	> .long 0
+ 477 1290 00000000 	> .long 0
+ 477 1294 00000000 	> .long 0
+ 477 1298 00000000 	> .long 0
+ 477 129c 00000000 	> .long 0
+ 477 12a0 00000000 	> .long 0
+ 477 12a4 00000000 	> .long 0
+ 477 12a8 00000000 	> .long 0
+ 477 12ac 00000000 	> .long 0
+ 477 12b0 00000000 	> .long 0
+ 477 12b4 00000000 	> .long 0
+ 477 12b8 00000000 	> .long 0
+ 477 12bc 00000000 	> .long 0
+ 477 12c0 00000000 	> .long 0
+ 477 12c4 00000000 	> .long 0
+ 477 12c8 00000000 	> .long 0
+ 478              	;#macro2 .long offset cor
+ 479              	;#       .long offset cand
+ 480              	;#       .long offset plus
+ 481 12cc 8E060000 	macro2: .long semi
+ 482 12d0 F5040000 	       .long cdup
+ 483 12d4 DA040000 	       .long qdup
+ 484 12d8 C4040000 	       .long cdrop
+ 485              	;#       .long offset nip
+ 486 12dc B2060000 	       .long then
+ 487 12e0 C5060000 	       .long begin
+ 488              	       .rept 128 .long 0; .endr
+ 488 12e4 00000000 	> .long 0
+ 488 12e8 00000000 	> .long 0
+ 488 12ec 00000000 	> .long 0
+ 488 12f0 00000000 	> .long 0
+ 488 12f4 00000000 	> .long 0
+ 488 12f8 00000000 	> .long 0
+ 488 12fc 00000000 	> .long 0
+ 488 1300 00000000 	> .long 0
+ 488 1304 00000000 	> .long 0
+ 488 1308 00000000 	> .long 0
+ 488 130c 00000000 	> .long 0
+ 488 1310 00000000 	> .long 0
+ 488 1314 00000000 	> .long 0
+ 488 1318 00000000 	> .long 0
+ 488 131c 00000000 	> .long 0
+ 488 1320 00000000 	> .long 0
+ 488 1324 00000000 	> .long 0
+ 488 1328 00000000 	> .long 0
+ 488 132c 00000000 	> .long 0
+ 488 1330 00000000 	> .long 0
+ 488 1334 00000000 	> .long 0
+ 488 1338 00000000 	> .long 0
+ 488 133c 00000000 	> .long 0
+ 488 1340 00000000 	> .long 0
+ 488 1344 00000000 	> .long 0
+ 488 1348 00000000 	> .long 0
+ 488 134c 00000000 	> .long 0
+ 488 1350 00000000 	> .long 0
+ 488 1354 00000000 	> .long 0
+ 488 1358 00000000 	> .long 0
+ 488 135c 00000000 	> .long 0
+ 488 1360 00000000 	> .long 0
+ 488 1364 00000000 	> .long 0
+ 488 1368 00000000 	> .long 0
+ 488 136c 00000000 	> .long 0
+ 488 1370 00000000 	> .long 0
+ 488 1374 00000000 	> .long 0
+ 488 1378 00000000 	> .long 0
+ 488 137c 00000000 	> .long 0
+ 488 1380 00000000 	> .long 0
+ 488 1384 00000000 	> .long 0
+ 488 1388 00000000 	> .long 0
+ 488 138c 00000000 	> .long 0
+ 488 1390 00000000 	> .long 0
+ 488 1394 00000000 	> .long 0
+ 488 1398 00000000 	> .long 0
+ 488 139c 00000000 	> .long 0
+ 488 13a0 00000000 	> .long 0
+ 488 13a4 00000000 	> .long 0
+ 488 13a8 00000000 	> .long 0
+ 488 13ac 00000000 	> .long 0
+ 488 13b0 00000000 	> .long 0
+ 488 13b4 00000000 	> .long 0
+ 488 13b8 00000000 	> .long 0
+ 488 13bc 00000000 	> .long 0
+ 488 13c0 00000000 	> .long 0
+ 488 13c4 00000000 	> .long 0
+ 488 13c8 00000000 	> .long 0
+ 488 13cc 00000000 	> .long 0
+ 488 13d0 00000000 	> .long 0
+ 488 13d4 00000000 	> .long 0
+ 488 13d8 00000000 	> .long 0
+ 488 13dc 00000000 	> .long 0
+ 488 13e0 00000000 	> .long 0
+ 488 13e4 00000000 	> .long 0
+ 488 13e8 00000000 	> .long 0
+ 488 13ec 00000000 	> .long 0
+ 488 13f0 00000000 	> .long 0
+ 488 13f4 00000000 	> .long 0
+ 488 13f8 00000000 	> .long 0
+ 488 13fc 00000000 	> .long 0
+ 488 1400 00000000 	> .long 0
+ 488 1404 00000000 	> .long 0
+ 488 1408 00000000 	> .long 0
+ 488 140c 00000000 	> .long 0
+ 488 1410 00000000 	> .long 0
+ 488 1414 00000000 	> .long 0
+ 488 1418 00000000 	> .long 0
+ 488 141c 00000000 	> .long 0
+ 488 1420 00000000 	> .long 0
+ 488 1424 00000000 	> .long 0
+ 488 1428 00000000 	> .long 0
+ 488 142c 00000000 	> .long 0
+ 488 1430 00000000 	> .long 0
+ 488 1434 00000000 	> .long 0
+ 488 1438 00000000 	> .long 0
+ 488 143c 00000000 	> .long 0
+ 488 1440 00000000 	> .long 0
+ 488 1444 00000000 	> .long 0
+ 488 1448 00000000 	> .long 0
+ 488 144c 00000000 	> .long 0
+ 488 1450 00000000 	> .long 0
+ 488 1454 00000000 	> .long 0
+ 488 1458 00000000 	> .long 0
+ 488 145c 00000000 	> .long 0
+ 488 1460 00000000 	> .long 0
+ 488 1464 00000000 	> .long 0
+ 488 1468 00000000 	> .long 0
+ 488 146c 00000000 	> .long 0
+ 488 1470 00000000 	> .long 0
+ 488 1474 00000000 	> .long 0
+ 488 1478 00000000 	> .long 0
+ 488 147c 00000000 	> .long 0
+ 488 1480 00000000 	> .long 0
+ 488 1484 00000000 	> .long 0
+ 488 1488 00000000 	> .long 0
+ 488 148c 00000000 	> .long 0
+ 488 1490 00000000 	> .long 0
+ 488 1494 00000000 	> .long 0
+ 488 1498 00000000 	> .long 0
+ 488 149c 00000000 	> .long 0
+ 488 14a0 00000000 	> .long 0
+ 488 14a4 00000000 	> .long 0
+ 488 14a8 00000000 	> .long 0
+ 488 14ac 00000000 	> .long 0
+ 488 14b0 00000000 	> .long 0
+ 488 14b4 00000000 	> .long 0
+ 488 14b8 00000000 	> .long 0
+ 488 14bc 00000000 	> .long 0
+ 488 14c0 00000000 	> .long 0
+ 488 14c4 00000000 	> .long 0
+ 488 14c8 00000000 	> .long 0
+ 488 14cc 00000000 	> .long 0
+ 488 14d0 00000000 	> .long 0
+ 488 14d4 00000000 	> .long 0
+ 488 14d8 00000000 	> .long 0
+ 488 14dc 00000000 	> .long 0
+ 488 14e0 00000000 	> .long 0
+ 489 14e4 D01D0000 	forth2: .long boot
+ 490 14e8 83020000 	       .long warm
+ 491 14ec D4020000 	       .long pause
+ 492 14f0 48040000 	       .long macro_
+ 493 14f4 62040000 	       .long forth
+ 494 14f8 36030000 	       .long c_
+ 495 14fc 7F010000 	       .long stop
+ 496 1500 1D020000 	       .long readf
+ 497 1504 38020000 	       .long writef
+ 498 1508 681E0000 	       .long nc_
+ 499 150c 66020000 	       .long cmdf
+ 500 1510 4C020000 	       .long seekf
+ 501 1514 77020000 	       .long readyf
+ 502 1518 F1020000 	       .long act
+ 503 151c 11030000 	       .long show
+ 504 1520 41070000 	       .long load
+ 505 1524 CB060000 	       .long here
+ 506 1528 D6060000 	       .long qlit
+ 507 152c 87060000 	       .long comma3
+ 508 1530 80060000 	       .long comma2
+ 509 1534 79060000 	       .long comma1
+ 510 1538 5D060000 	       .long comma
+ 511 153c 1D070000 	       .long less
+ 512 1540 34070000 	       .long jump
+ 513 1544 33240000 	       .long accept
+ 514 1548 F42D0000 	       .long pad
+ 515 154c D61D0000 	       .long erase
+ 516 1550 E91D0000 	       .long copy
+ 517 1554 3C030000 	       .long mark
+ 518 1558 61030000 	       .long empty
+ 519 155c 771F0000 	       .long emit
+ 520 1560 A7260000 	       .long edig
+ 521 1564 B71F0000 	       .long emit2
+ 522 1568 18270000 	       .long dot10
+ 523 156c D3260000 	       .long hdot
+ 524 1570 C1260000 	       .long hdotn
+ 525 1574 8B210000 	       .long cr
+ 526 1578 AC1F0000 	       .long space
+ 527 157c 11210000 	       .long down
+ 528 1580 D62B0000 	       .long edit
+ 529 1584 DC2B0000 	       .long e
+ 530              	;#       .long offset font
+ 531 1588 A5210000 	       .long lms
+ 532 158c AC210000 	       .long rms
+ 533 1590 E11E0000 	       .long graphic
+ 534 1594 F21F0000 	       .long text1
+ 535              	;#       .long offset set3d
+ 536              	;#       .long offset render
+ 537              	;#       .long offset vertex
+ 538              	;#       .long offset front
+ 539              	;#       .long offset top_
+ 540              	;#       .long offset side
+ 541 1598 3E220000 	       .long keyboard
+ 542 159c 101E0000 	       .long debug
+ 543 15a0 B3210000 	       .long at
+ 544 15a4 C2210000 	       .long pat
+ 545 15a8 731E0000 	       .long xy_
+ 546 15ac 7E1E0000 	       .long fov_
+ 547 15b0 E01E0000 	       .long fifof
+ 548 15b4 2E200000 	       .long box
+ 549 15b8 10200000 	       .long line
+ 550 15bc D41E0000 	       .long color
+ 551              	;#       .long offset clip
+ 552 15c0 D3210000 	       .long octant
+ 553 15c4 891E0000 	       .long sps
+ 554 15c8 941E0000 	       .long last_
+ 555 15cc 69270000 	       .long unpack
+ 556              	;#       .long offset pack
+ 557              	       .rept 512 .long 0; .endr
+ 557 15d0 00000000 	> .long 0
+ 557 15d4 00000000 	> .long 0
+ 557 15d8 00000000 	> .long 0
+ 557 15dc 00000000 	> .long 0
+ 557 15e0 00000000 	> .long 0
+ 557 15e4 00000000 	> .long 0
+ 557 15e8 00000000 	> .long 0
+ 557 15ec 00000000 	> .long 0
+ 557 15f0 00000000 	> .long 0
+ 557 15f4 00000000 	> .long 0
+ 557 15f8 00000000 	> .long 0
+ 557 15fc 00000000 	> .long 0
+ 557 1600 00000000 	> .long 0
+ 557 1604 00000000 	> .long 0
+ 557 1608 00000000 	> .long 0
+ 557 160c 00000000 	> .long 0
+ 557 1610 00000000 	> .long 0
+ 557 1614 00000000 	> .long 0
+ 557 1618 00000000 	> .long 0
+ 557 161c 00000000 	> .long 0
+ 557 1620 00000000 	> .long 0
+ 557 1624 00000000 	> .long 0
+ 557 1628 00000000 	> .long 0
+ 557 162c 00000000 	> .long 0
+ 557 1630 00000000 	> .long 0
+ 557 1634 00000000 	> .long 0
+ 557 1638 00000000 	> .long 0
+ 557 163c 00000000 	> .long 0
+ 557 1640 00000000 	> .long 0
+ 557 1644 00000000 	> .long 0
+ 557 1648 00000000 	> .long 0
+ 557 164c 00000000 	> .long 0
+ 557 1650 00000000 	> .long 0
+ 557 1654 00000000 	> .long 0
+ 557 1658 00000000 	> .long 0
+ 557 165c 00000000 	> .long 0
+ 557 1660 00000000 	> .long 0
+ 557 1664 00000000 	> .long 0
+ 557 1668 00000000 	> .long 0
+ 557 166c 00000000 	> .long 0
+ 557 1670 00000000 	> .long 0
+ 557 1674 00000000 	> .long 0
+ 557 1678 00000000 	> .long 0
+ 557 167c 00000000 	> .long 0
+ 557 1680 00000000 	> .long 0
+ 557 1684 00000000 	> .long 0
+ 557 1688 00000000 	> .long 0
+ 557 168c 00000000 	> .long 0
+ 557 1690 00000000 	> .long 0
+ 557 1694 00000000 	> .long 0
+ 557 1698 00000000 	> .long 0
+ 557 169c 00000000 	> .long 0
+ 557 16a0 00000000 	> .long 0
+ 557 16a4 00000000 	> .long 0
+ 557 16a8 00000000 	> .long 0
+ 557 16ac 00000000 	> .long 0
+ 557 16b0 00000000 	> .long 0
+ 557 16b4 00000000 	> .long 0
+ 557 16b8 00000000 	> .long 0
+ 557 16bc 00000000 	> .long 0
+ 557 16c0 00000000 	> .long 0
+ 557 16c4 00000000 	> .long 0
+ 557 16c8 00000000 	> .long 0
+ 557 16cc 00000000 	> .long 0
+ 557 16d0 00000000 	> .long 0
+ 557 16d4 00000000 	> .long 0
+ 557 16d8 00000000 	> .long 0
+ 557 16dc 00000000 	> .long 0
+ 557 16e0 00000000 	> .long 0
+ 557 16e4 00000000 	> .long 0
+ 557 16e8 00000000 	> .long 0
+ 557 16ec 00000000 	> .long 0
+ 557 16f0 00000000 	> .long 0
+ 557 16f4 00000000 	> .long 0
+ 557 16f8 00000000 	> .long 0
+ 557 16fc 00000000 	> .long 0
+ 557 1700 00000000 	> .long 0
+ 557 1704 00000000 	> .long 0
+ 557 1708 00000000 	> .long 0
+ 557 170c 00000000 	> .long 0
+ 557 1710 00000000 	> .long 0
+ 557 1714 00000000 	> .long 0
+ 557 1718 00000000 	> .long 0
+ 557 171c 00000000 	> .long 0
+ 557 1720 00000000 	> .long 0
+ 557 1724 00000000 	> .long 0
+ 557 1728 00000000 	> .long 0
+ 557 172c 00000000 	> .long 0
+ 557 1730 00000000 	> .long 0
+ 557 1734 00000000 	> .long 0
+ 557 1738 00000000 	> .long 0
+ 557 173c 00000000 	> .long 0
+ 557 1740 00000000 	> .long 0
+ 557 1744 00000000 	> .long 0
+ 557 1748 00000000 	> .long 0
+ 557 174c 00000000 	> .long 0
+ 557 1750 00000000 	> .long 0
+ 557 1754 00000000 	> .long 0
+ 557 1758 00000000 	> .long 0
+ 557 175c 00000000 	> .long 0
+ 557 1760 00000000 	> .long 0
+ 557 1764 00000000 	> .long 0
+ 557 1768 00000000 	> .long 0
+ 557 176c 00000000 	> .long 0
+ 557 1770 00000000 	> .long 0
+ 557 1774 00000000 	> .long 0
+ 557 1778 00000000 	> .long 0
+ 557 177c 00000000 	> .long 0
+ 557 1780 00000000 	> .long 0
+ 557 1784 00000000 	> .long 0
+ 557 1788 00000000 	> .long 0
+ 557 178c 00000000 	> .long 0
+ 557 1790 00000000 	> .long 0
+ 557 1794 00000000 	> .long 0
+ 557 1798 00000000 	> .long 0
+ 557 179c 00000000 	> .long 0
+ 557 17a0 00000000 	> .long 0
+ 557 17a4 00000000 	> .long 0
+ 557 17a8 00000000 	> .long 0
+ 557 17ac 00000000 	> .long 0
+ 557 17b0 00000000 	> .long 0
+ 557 17b4 00000000 	> .long 0
+ 557 17b8 00000000 	> .long 0
+ 557 17bc 00000000 	> .long 0
+ 557 17c0 00000000 	> .long 0
+ 557 17c4 00000000 	> .long 0
+ 557 17c8 00000000 	> .long 0
+ 557 17cc 00000000 	> .long 0
+ 557 17d0 00000000 	> .long 0
+ 557 17d4 00000000 	> .long 0
+ 557 17d8 00000000 	> .long 0
+ 557 17dc 00000000 	> .long 0
+ 557 17e0 00000000 	> .long 0
+ 557 17e4 00000000 	> .long 0
+ 557 17e8 00000000 	> .long 0
+ 557 17ec 00000000 	> .long 0
+ 557 17f0 00000000 	> .long 0
+ 557 17f4 00000000 	> .long 0
+ 557 17f8 00000000 	> .long 0
+ 557 17fc 00000000 	> .long 0
+ 557 1800 00000000 	> .long 0
+ 557 1804 00000000 	> .long 0
+ 557 1808 00000000 	> .long 0
+ 557 180c 00000000 	> .long 0
+ 557 1810 00000000 	> .long 0
+ 557 1814 00000000 	> .long 0
+ 557 1818 00000000 	> .long 0
+ 557 181c 00000000 	> .long 0
+ 557 1820 00000000 	> .long 0
+ 557 1824 00000000 	> .long 0
+ 557 1828 00000000 	> .long 0
+ 557 182c 00000000 	> .long 0
+ 557 1830 00000000 	> .long 0
+ 557 1834 00000000 	> .long 0
+ 557 1838 00000000 	> .long 0
+ 557 183c 00000000 	> .long 0
+ 557 1840 00000000 	> .long 0
+ 557 1844 00000000 	> .long 0
+ 557 1848 00000000 	> .long 0
+ 557 184c 00000000 	> .long 0
+ 557 1850 00000000 	> .long 0
+ 557 1854 00000000 	> .long 0
+ 557 1858 00000000 	> .long 0
+ 557 185c 00000000 	> .long 0
+ 557 1860 00000000 	> .long 0
+ 557 1864 00000000 	> .long 0
+ 557 1868 00000000 	> .long 0
+ 557 186c 00000000 	> .long 0
+ 557 1870 00000000 	> .long 0
+ 557 1874 00000000 	> .long 0
+ 557 1878 00000000 	> .long 0
+ 557 187c 00000000 	> .long 0
+ 557 1880 00000000 	> .long 0
+ 557 1884 00000000 	> .long 0
+ 557 1888 00000000 	> .long 0
+ 557 188c 00000000 	> .long 0
+ 557 1890 00000000 	> .long 0
+ 557 1894 00000000 	> .long 0
+ 557 1898 00000000 	> .long 0
+ 557 189c 00000000 	> .long 0
+ 557 18a0 00000000 	> .long 0
+ 557 18a4 00000000 	> .long 0
+ 557 18a8 00000000 	> .long 0
+ 557 18ac 00000000 	> .long 0
+ 557 18b0 00000000 	> .long 0
+ 557 18b4 00000000 	> .long 0
+ 557 18b8 00000000 	> .long 0
+ 557 18bc 00000000 	> .long 0
+ 557 18c0 00000000 	> .long 0
+ 557 18c4 00000000 	> .long 0
+ 557 18c8 00000000 	> .long 0
+ 557 18cc 00000000 	> .long 0
+ 557 18d0 00000000 	> .long 0
+ 557 18d4 00000000 	> .long 0
+ 557 18d8 00000000 	> .long 0
+ 557 18dc 00000000 	> .long 0
+ 557 18e0 00000000 	> .long 0
+ 557 18e4 00000000 	> .long 0
+ 557 18e8 00000000 	> .long 0
+ 557 18ec 00000000 	> .long 0
+ 557 18f0 00000000 	> .long 0
+ 557 18f4 00000000 	> .long 0
+ 557 18f8 00000000 	> .long 0
+ 557 18fc 00000000 	> .long 0
+ 557 1900 00000000 	> .long 0
+ 557 1904 00000000 	> .long 0
+ 557 1908 00000000 	> .long 0
+ 557 190c 00000000 	> .long 0
+ 557 1910 00000000 	> .long 0
+ 557 1914 00000000 	> .long 0
+ 557 1918 00000000 	> .long 0
+ 557 191c 00000000 	> .long 0
+ 557 1920 00000000 	> .long 0
+ 557 1924 00000000 	> .long 0
+ 557 1928 00000000 	> .long 0
+ 557 192c 00000000 	> .long 0
+ 557 1930 00000000 	> .long 0
+ 557 1934 00000000 	> .long 0
+ 557 1938 00000000 	> .long 0
+ 557 193c 00000000 	> .long 0
+ 557 1940 00000000 	> .long 0
+ 557 1944 00000000 	> .long 0
+ 557 1948 00000000 	> .long 0
+ 557 194c 00000000 	> .long 0
+ 557 1950 00000000 	> .long 0
+ 557 1954 00000000 	> .long 0
+ 557 1958 00000000 	> .long 0
+ 557 195c 00000000 	> .long 0
+ 557 1960 00000000 	> .long 0
+ 557 1964 00000000 	> .long 0
+ 557 1968 00000000 	> .long 0
+ 557 196c 00000000 	> .long 0
+ 557 1970 00000000 	> .long 0
+ 557 1974 00000000 	> .long 0
+ 557 1978 00000000 	> .long 0
+ 557 197c 00000000 	> .long 0
+ 557 1980 00000000 	> .long 0
+ 557 1984 00000000 	> .long 0
+ 557 1988 00000000 	> .long 0
+ 557 198c 00000000 	> .long 0
+ 557 1990 00000000 	> .long 0
+ 557 1994 00000000 	> .long 0
+ 557 1998 00000000 	> .long 0
+ 557 199c 00000000 	> .long 0
+ 557 19a0 00000000 	> .long 0
+ 557 19a4 00000000 	> .long 0
+ 557 19a8 00000000 	> .long 0
+ 557 19ac 00000000 	> .long 0
+ 557 19b0 00000000 	> .long 0
+ 557 19b4 00000000 	> .long 0
+ 557 19b8 00000000 	> .long 0
+ 557 19bc 00000000 	> .long 0
+ 557 19c0 00000000 	> .long 0
+ 557 19c4 00000000 	> .long 0
+ 557 19c8 00000000 	> .long 0
+ 557 19cc 00000000 	> .long 0
+ 557 19d0 00000000 	> .long 0
+ 557 19d4 00000000 	> .long 0
+ 557 19d8 00000000 	> .long 0
+ 557 19dc 00000000 	> .long 0
+ 557 19e0 00000000 	> .long 0
+ 557 19e4 00000000 	> .long 0
+ 557 19e8 00000000 	> .long 0
+ 557 19ec 00000000 	> .long 0
+ 557 19f0 00000000 	> .long 0
+ 557 19f4 00000000 	> .long 0
+ 557 19f8 00000000 	> .long 0
+ 557 19fc 00000000 	> .long 0
+ 557 1a00 00000000 	> .long 0
+ 557 1a04 00000000 	> .long 0
+ 557 1a08 00000000 	> .long 0
+ 557 1a0c 00000000 	> .long 0
+ 557 1a10 00000000 	> .long 0
+ 557 1a14 00000000 	> .long 0
+ 557 1a18 00000000 	> .long 0
+ 557 1a1c 00000000 	> .long 0
+ 557 1a20 00000000 	> .long 0
+ 557 1a24 00000000 	> .long 0
+ 557 1a28 00000000 	> .long 0
+ 557 1a2c 00000000 	> .long 0
+ 557 1a30 00000000 	> .long 0
+ 557 1a34 00000000 	> .long 0
+ 557 1a38 00000000 	> .long 0
+ 557 1a3c 00000000 	> .long 0
+ 557 1a40 00000000 	> .long 0
+ 557 1a44 00000000 	> .long 0
+ 557 1a48 00000000 	> .long 0
+ 557 1a4c 00000000 	> .long 0
+ 557 1a50 00000000 	> .long 0
+ 557 1a54 00000000 	> .long 0
+ 557 1a58 00000000 	> .long 0
+ 557 1a5c 00000000 	> .long 0
+ 557 1a60 00000000 	> .long 0
+ 557 1a64 00000000 	> .long 0
+ 557 1a68 00000000 	> .long 0
+ 557 1a6c 00000000 	> .long 0
+ 557 1a70 00000000 	> .long 0
+ 557 1a74 00000000 	> .long 0
+ 557 1a78 00000000 	> .long 0
+ 557 1a7c 00000000 	> .long 0
+ 557 1a80 00000000 	> .long 0
+ 557 1a84 00000000 	> .long 0
+ 557 1a88 00000000 	> .long 0
+ 557 1a8c 00000000 	> .long 0
+ 557 1a90 00000000 	> .long 0
+ 557 1a94 00000000 	> .long 0
+ 557 1a98 00000000 	> .long 0
+ 557 1a9c 00000000 	> .long 0
+ 557 1aa0 00000000 	> .long 0
+ 557 1aa4 00000000 	> .long 0
+ 557 1aa8 00000000 	> .long 0
+ 557 1aac 00000000 	> .long 0
+ 557 1ab0 00000000 	> .long 0
+ 557 1ab4 00000000 	> .long 0
+ 557 1ab8 00000000 	> .long 0
+ 557 1abc 00000000 	> .long 0
+ 557 1ac0 00000000 	> .long 0
+ 557 1ac4 00000000 	> .long 0
+ 557 1ac8 00000000 	> .long 0
+ 557 1acc 00000000 	> .long 0
+ 557 1ad0 00000000 	> .long 0
+ 557 1ad4 00000000 	> .long 0
+ 557 1ad8 00000000 	> .long 0
+ 557 1adc 00000000 	> .long 0
+ 557 1ae0 00000000 	> .long 0
+ 557 1ae4 00000000 	> .long 0
+ 557 1ae8 00000000 	> .long 0
+ 557 1aec 00000000 	> .long 0
+ 557 1af0 00000000 	> .long 0
+ 557 1af4 00000000 	> .long 0
+ 557 1af8 00000000 	> .long 0
+ 557 1afc 00000000 	> .long 0
+ 557 1b00 00000000 	> .long 0
+ 557 1b04 00000000 	> .long 0
+ 557 1b08 00000000 	> .long 0
+ 557 1b0c 00000000 	> .long 0
+ 557 1b10 00000000 	> .long 0
+ 557 1b14 00000000 	> .long 0
+ 557 1b18 00000000 	> .long 0
+ 557 1b1c 00000000 	> .long 0
+ 557 1b20 00000000 	> .long 0
+ 557 1b24 00000000 	> .long 0
+ 557 1b28 00000000 	> .long 0
+ 557 1b2c 00000000 	> .long 0
+ 557 1b30 00000000 	> .long 0
+ 557 1b34 00000000 	> .long 0
+ 557 1b38 00000000 	> .long 0
+ 557 1b3c 00000000 	> .long 0
+ 557 1b40 00000000 	> .long 0
+ 557 1b44 00000000 	> .long 0
+ 557 1b48 00000000 	> .long 0
+ 557 1b4c 00000000 	> .long 0
+ 557 1b50 00000000 	> .long 0
+ 557 1b54 00000000 	> .long 0
+ 557 1b58 00000000 	> .long 0
+ 557 1b5c 00000000 	> .long 0
+ 557 1b60 00000000 	> .long 0
+ 557 1b64 00000000 	> .long 0
+ 557 1b68 00000000 	> .long 0
+ 557 1b6c 00000000 	> .long 0
+ 557 1b70 00000000 	> .long 0
+ 557 1b74 00000000 	> .long 0
+ 557 1b78 00000000 	> .long 0
+ 557 1b7c 00000000 	> .long 0
+ 557 1b80 00000000 	> .long 0
+ 557 1b84 00000000 	> .long 0
+ 557 1b88 00000000 	> .long 0
+ 557 1b8c 00000000 	> .long 0
+ 557 1b90 00000000 	> .long 0
+ 557 1b94 00000000 	> .long 0
+ 557 1b98 00000000 	> .long 0
+ 557 1b9c 00000000 	> .long 0
+ 557 1ba0 00000000 	> .long 0
+ 557 1ba4 00000000 	> .long 0
+ 557 1ba8 00000000 	> .long 0
+ 557 1bac 00000000 	> .long 0
+ 557 1bb0 00000000 	> .long 0
+ 557 1bb4 00000000 	> .long 0
+ 557 1bb8 00000000 	> .long 0
+ 557 1bbc 00000000 	> .long 0
+ 557 1bc0 00000000 	> .long 0
+ 557 1bc4 00000000 	> .long 0
+ 557 1bc8 00000000 	> .long 0
+ 557 1bcc 00000000 	> .long 0
+ 557 1bd0 00000000 	> .long 0
+ 557 1bd4 00000000 	> .long 0
+ 557 1bd8 00000000 	> .long 0
+ 557 1bdc 00000000 	> .long 0
+ 557 1be0 00000000 	> .long 0
+ 557 1be4 00000000 	> .long 0
+ 557 1be8 00000000 	> .long 0
+ 557 1bec 00000000 	> .long 0
+ 557 1bf0 00000000 	> .long 0
+ 557 1bf4 00000000 	> .long 0
+ 557 1bf8 00000000 	> .long 0
+ 557 1bfc 00000000 	> .long 0
+ 557 1c00 00000000 	> .long 0
+ 557 1c04 00000000 	> .long 0
+ 557 1c08 00000000 	> .long 0
+ 557 1c0c 00000000 	> .long 0
+ 557 1c10 00000000 	> .long 0
+ 557 1c14 00000000 	> .long 0
+ 557 1c18 00000000 	> .long 0
+ 557 1c1c 00000000 	> .long 0
+ 557 1c20 00000000 	> .long 0
+ 557 1c24 00000000 	> .long 0
+ 557 1c28 00000000 	> .long 0
+ 557 1c2c 00000000 	> .long 0
+ 557 1c30 00000000 	> .long 0
+ 557 1c34 00000000 	> .long 0
+ 557 1c38 00000000 	> .long 0
+ 557 1c3c 00000000 	> .long 0
+ 557 1c40 00000000 	> .long 0
+ 557 1c44 00000000 	> .long 0
+ 557 1c48 00000000 	> .long 0
+ 557 1c4c 00000000 	> .long 0
+ 557 1c50 00000000 	> .long 0
+ 557 1c54 00000000 	> .long 0
+ 557 1c58 00000000 	> .long 0
+ 557 1c5c 00000000 	> .long 0
+ 557 1c60 00000000 	> .long 0
+ 557 1c64 00000000 	> .long 0
+ 557 1c68 00000000 	> .long 0
+ 557 1c6c 00000000 	> .long 0
+ 557 1c70 00000000 	> .long 0
+ 557 1c74 00000000 	> .long 0
+ 557 1c78 00000000 	> .long 0
+ 557 1c7c 00000000 	> .long 0
+ 557 1c80 00000000 	> .long 0
+ 557 1c84 00000000 	> .long 0
+ 557 1c88 00000000 	> .long 0
+ 557 1c8c 00000000 	> .long 0
+ 557 1c90 00000000 	> .long 0
+ 557 1c94 00000000 	> .long 0
+ 557 1c98 00000000 	> .long 0
+ 557 1c9c 00000000 	> .long 0
+ 557 1ca0 00000000 	> .long 0
+ 557 1ca4 00000000 	> .long 0
+ 557 1ca8 00000000 	> .long 0
+ 557 1cac 00000000 	> .long 0
+ 557 1cb0 00000000 	> .long 0
+ 557 1cb4 00000000 	> .long 0
+ 557 1cb8 00000000 	> .long 0
+ 557 1cbc 00000000 	> .long 0
+ 557 1cc0 00000000 	> .long 0
+ 557 1cc4 00000000 	> .long 0
+ 557 1cc8 00000000 	> .long 0
+ 557 1ccc 00000000 	> .long 0
+ 557 1cd0 00000000 	> .long 0
+ 557 1cd4 00000000 	> .long 0
+ 557 1cd8 00000000 	> .long 0
+ 557 1cdc 00000000 	> .long 0
+ 557 1ce0 00000000 	> .long 0
+ 557 1ce4 00000000 	> .long 0
+ 557 1ce8 00000000 	> .long 0
+ 557 1cec 00000000 	> .long 0
+ 557 1cf0 00000000 	> .long 0
+ 557 1cf4 00000000 	> .long 0
+ 557 1cf8 00000000 	> .long 0
+ 557 1cfc 00000000 	> .long 0
+ 557 1d00 00000000 	> .long 0
+ 557 1d04 00000000 	> .long 0
+ 557 1d08 00000000 	> .long 0
+ 557 1d0c 00000000 	> .long 0
+ 557 1d10 00000000 	> .long 0
+ 557 1d14 00000000 	> .long 0
+ 557 1d18 00000000 	> .long 0
+ 557 1d1c 00000000 	> .long 0
+ 557 1d20 00000000 	> .long 0
+ 557 1d24 00000000 	> .long 0
+ 557 1d28 00000000 	> .long 0
+ 557 1d2c 00000000 	> .long 0
+ 557 1d30 00000000 	> .long 0
+ 557 1d34 00000000 	> .long 0
+ 557 1d38 00000000 	> .long 0
+ 557 1d3c 00000000 	> .long 0
+ 557 1d40 00000000 	> .long 0
+ 557 1d44 00000000 	> .long 0
+ 557 1d48 00000000 	> .long 0
+ 557 1d4c 00000000 	> .long 0
+ 557 1d50 00000000 	> .long 0
+ 557 1d54 00000000 	> .long 0
+ 557 1d58 00000000 	> .long 0
+ 557 1d5c 00000000 	> .long 0
+ 557 1d60 00000000 	> .long 0
+ 557 1d64 00000000 	> .long 0
+ 557 1d68 00000000 	> .long 0
+ 557 1d6c 00000000 	> .long 0
+ 557 1d70 00000000 	> .long 0
+ 557 1d74 00000000 	> .long 0
+ 557 1d78 00000000 	> .long 0
+ 557 1d7c 00000000 	> .long 0
+ 557 1d80 00000000 	> .long 0
+ 557 1d84 00000000 	> .long 0
+ 557 1d88 00000000 	> .long 0
+ 557 1d8c 00000000 	> .long 0
+ 557 1d90 00000000 	> .long 0
+ 557 1d94 00000000 	> .long 0
+ 557 1d98 00000000 	> .long 0
+ 557 1d9c 00000000 	> .long 0
+ 557 1da0 00000000 	> .long 0
+ 557 1da4 00000000 	> .long 0
+ 557 1da8 00000000 	> .long 0
+ 557 1dac 00000000 	> .long 0
+ 557 1db0 00000000 	> .long 0
+ 557 1db4 00000000 	> .long 0
+ 557 1db8 00000000 	> .long 0
+ 557 1dbc 00000000 	> .long 0
+ 557 1dc0 00000000 	> .long 0
+ 557 1dc4 00000000 	> .long 0
+ 557 1dc8 00000000 	> .long 0
+ 557 1dcc 00000000 	> .long 0
+ 558              	
+ 559 1dd0 B0FE     	boot: mov  al, 0x0fe ;# reset
+ 560 1dd2 E664     	    out  0x64, al
+ 561 1dd4 EBFE     	    jmp  .
+ 562              	
+ 563 1dd6 89C1     	erase: mov  ecx, eax
+ 564 1dd8 C1E108   	    shl  ecx, 8
+ 565              	    drop
+ 565 1ddb AD       	> lodsd
+ 566 1ddc 57       	    push edi
+ 567 1ddd 89C7     	     mov  edi, eax
+ 568 1ddf C1E70A   	     shl  edi, 2+8
+ 569 1de2 31C0     	     xor  eax, eax
+ 570 1de4 F3AB     	     rep stosd
+ 571 1de6 5F       	    pop edi
+ 572              	    drop
+ 572 1de7 AD       	> lodsd
+ 573 1de8 C3       	    ret
+ 574              	
+ 575              	;#move: mov  ecx, eax
+ 576              	;#    drop
+ 577              	;#    mov  edi, eax
+ 578              	;#    shl  edi, 2
+ 579              	;#    drop
+ 580              	;#    push esi
+ 581              	;#     mov  esi, eax
+ 582              	;#     shl  esi, 2
+ 583              	;#     rep movsd
+ 584              	;#    pop  esi
+ 585              	;#    drop
+ 586              	;#    ret
+ 587              	
+ 588 1de9 83F80C   	copy: cmp  eax, 12
+ 589 1dec 0F8213E6 	    jc   abort1
+ 589      FFFF
+ 590 1df2 89C7     	    mov  edi, eax
+ 591 1df4 C1E70A   	    shl  edi, 2+8
+ 592 1df7 56       	    push esi
+ 593 1df8 8B353C2A 	     mov  esi, blk
+ 593      0000
+ 594 1dfe C1E60A   	     shl  esi, 2+8
+ 595 1e01 B9000100 	     mov  ecx, 256
+ 595      00
+ 596 1e06 F3A5     	     rep movsd
+ 597 1e08 5E       	    pop  esi
+ 598 1e09 A33C2A00 	    mov  blk, eax
+ 598      00
+ 599              	    drop
+ 599 1e0e AD       	> lodsd
+ 600 1e0f C3       	    ret
+ 601              	
+ 602 1e10 C705541E 	debug: mov dword ptr  xy,  offset (3*0x10000+(vc-2)*ih+3)
+ 602      0000B502 
+ 602      0300
+ 603              	    dup_
+ 603 1e1a 8D76FC   	> lea esi,[esi-4]
+ 603 1e1d 8906     	> mov [esi],eax
+ 604 1e1f A1C50200 	    mov  eax, god
+ 604      00
+ 605 1e24 FF30     	    push [eax]
+ 606 1e26 E8BC0800 	    call dot
+ 606      00
+ 607              	    dup_
+ 607 1e2b 8D76FC   	> lea esi,[esi-4]
+ 607 1e2e 8906     	> mov [esi],eax
+ 608 1e30 58       	    pop  eax
+ 609 1e31 E8B10800 	    call dot
+ 609      00
+ 610              	    dup_
+ 610 1e36 8D76FC   	> lea esi,[esi-4]
+ 610 1e39 8906     	> mov [esi],eax
+ 611 1e3b A1CE0200 	    mov  eax, main
+ 611      00
+ 612 1e40 E8A20800 	    call dot
+ 612      00
+ 613              	    dup_
+ 613 1e45 8D76FC   	> lea esi,[esi-4]
+ 613 1e48 8906     	> mov [esi],eax
+ 614 1e4a 89F0     	    mov  eax, esi
+ 615 1e4c E9960800 	    jmp  dot
+ 615      00
+ 616              	
+ 617              	.equ iw, 16+6
+ 618              	.equ ih, 24+6
+ 619              	.equ hc, hp/iw ;# 46
+ 620              	.equ vc, vp/ih ;# 25
+ 621 1e51 8D7600   	.align 4
+ 622 1e54 03000300 	xy:  .long 3*0x10000+3
+ 623 1e58 03000000 	lm:  .long 3
+ 624 1e5c F4030000 	rm:  .long hc*iw ;# 1012
+ 625 1e60 00000000 	xycr: .long 0
+ 626 1e64 004B0000 	fov: .long 10*(2*vp+vp/2)
+ 627              	
+ 628              	nc_: dup_
+ 628 1e68 8D76FC   	> lea esi,[esi-4]
+ 628 1e6b 8906     	> mov [esi],eax
+ 629 1e6d B80C0000 	    mov  eax, (offset nc-offset start)/4
+ 629      00
+ 630 1e72 C3       	    ret
+ 631              	
+ 632              	xy_: dup_
+ 632 1e73 8D76FC   	> lea esi,[esi-4]
+ 632 1e76 8906     	> mov [esi],eax
+ 633 1e78 B8950700 	    mov  eax, (offset xy-offset start)/4
+ 633      00
+ 634 1e7d C3       	    ret
+ 635              	
+ 636              	fov_: dup_
+ 636 1e7e 8D76FC   	> lea esi,[esi-4]
+ 636 1e81 8906     	> mov [esi],eax
+ 637 1e83 B8990700 	    mov  eax, (offset fov-offset start)/4
+ 637      00
+ 638 1e88 C3       	    ret
+ 639              	
+ 640              	sps: dup_
+ 640 1e89 8D76FC   	> lea esi,[esi-4]
+ 640 1e8c 8906     	> mov [esi],eax
+ 641 1e8e B8D70100 	    mov  eax, (offset spaces-offset start)/4
+ 641      00
+ 642 1e93 C3       	    ret
+ 643              	
+ 644              	last_: dup_
+ 644 1e94 8D76FC   	> lea esi,[esi-4]
+ 644 1e97 8906     	> mov [esi],eax
+ 645 1e99 B8EC0100 	    mov  eax, (offset last-offset start)/4
+ 645      00
+ 646 1e9e C3       	    ret
+ 647              	
+ 648              	.include "gen.asm" ;# cce.asm pio.asm ati128.asm ati64.asm gen.asm
+   1              	.intel_syntax ;#generic graphics
+   2              	
+   3              	;# VESA mode numbers and screen sizes,
+   4              	;# from http://www.mat.univie.ac.at/~gerald/laptop/vesafb.txt
+   5              	;#    | 640x480  800x600  1024x768 1280x1024
+   6              	;#----+-------------------------------------
+   7              	;#256 |  0x101    0x103    0x105    0x107   
+   8              	;#32k |  0x110    0x113    0x116    0x119   
+   9              	;#64k |  0x111    0x114    0x117    0x11A   
+  10              	;#16M |  0x112    0x115    0x118    0x11B   
+  11 1e9f 90       	.align 4
+  12              	;# top of RAM is 0x2000000 with 32 megs; framebuffer is just below this
+  13              	;# multiply vp (vertical pixels) by hp (horizontal pixels) by 2 bytes (16 bits)
+  14              	;# to determine the location of the framebuffer
+  15 1ea0 0000E801 	frame: .long 0x2000000-hp*vp*2 ;# 32 m
+  16 1ea4 000000F0 	displ: .long 0x0f0000000 ;# fujitsu (physical address of video memory)
+  17 1ea8 DEF70000 	fore:  .long 0x0f7de ;# half-brightness white in 565 color mode
+  18 1eac 00000000 	xc:    .long 0
+  19 1eb0 00000000 	yc:    .long 0
+  20              	
+  21 1eb4 C1C808   	rgb: ror  eax, 8
+  22 1eb7 66C1E802 	    shr  ax, 2
+  23 1ebb C1C806   	    ror  eax, 6
+  24 1ebe C0E803   	    shr  al, 3
+  25 1ec1 C1C00B   	    rol  eax, 6+5
+  26 1ec4 25DEF700 	    and  eax, 0x0f7de
+  26      00
+  27 1ec9 C3       	    ret
+  28              	
+  29              	white: dup_
+  29 1eca 8D76FC   	> lea esi,[esi-4]
+  29 1ecd 8906     	> mov [esi],eax
+  30 1ecf B8FFFFFF 	    mov  eax, 0x0ffffff
+  30      00
+  31 1ed4 E8DBFFFF 	color: call rgb
+  31      FF
+  32 1ed9 A3A81E00 	    mov  fore, eax
+  32      00
+  33              	    drop
+  33 1ede AD       	> lodsd
+  34 1edf C3       	    ret
+  35              	
+  36              	fifof: drop
+  36 1ee0 AD       	> lodsd
+  37 1ee1 C3       	graphic: ret
+  38              	
+  39              	switch:
+  40              	;#    dup_
+  41 1ee2 56       	    push esi
+  42 1ee3 8B35A01E 	    mov  esi, frame
+  42      0000
+  43 1ee9 57       	    push edi
+  44 1eea 8B3DA41E 	    mov  edi, displ ;# 0x0f2000000 emonster nvidia
+  44      0000
+  45              	;#    xor  eax, eax
+  46 1ef0 B9000006 	    mov  ecx, hp*vp/2
+  46      00
+  47              	;#@@:     lodsd
+  48              	;#        add  eax, [edi]
+  49              	;#        rcr  eax, 1
+  50              	;#        and  eax, 0x0f7def7de
+  51              	;#        stosd
+  52              	;#        next 0b
+  53 1ef5 F3A5     	    rep movsd
+  54 1ef7 5F       	    pop  edi
+  55 1ef8 5E       	    pop  esi
+  56              	;#    drop
+  57 1ef9 E9D6E3FF 	    jmp  pause
+  57      FF
+  58              	
+  59 1efe 8B3D541E 	clip: mov  edi, xy
+  59      0000
+  60 1f04 89F9     	    mov  ecx, edi
+  61 1f06 6685C9   	    test cx, cx
+  62 1f09 7902     	    jns  0f
+  63 1f0b 31C9     	        xor  ecx, ecx
+  64 1f0d 81E1FFFF 	0: and  ecx, 0x0ffff
+  64      0000
+  65 1f13 890DB01E 	    mov  yc, ecx
+  65      0000
+  66 1f19 69C90008 	    imul ecx, hp*2
+  66      0000
+  67              	;#    shl  ecx, 10+1
+  68 1f1f C1FF10   	    sar  edi, 16
+  69 1f22 7902     	    jns  0f
+  70 1f24 31FF     	        xor  edi, edi
+  71 1f26 893DAC1E 	0: mov  xc, edi
+  71      0000
+  72 1f2c 8D3C79   	    lea  edi, [edi*2+ecx]
+  73 1f2f 033DA01E 	    add  edi, frame
+  73      0000
+  74 1f35 C3       	    ret
+  75              	
+  76 1f36 66AD     	bit16: lodsw
+  77 1f38 86E0     	    xchg al, ah
+  78 1f3a B9100000 	    mov  ecx, 16
+  78      00
+  79 1f3f 66D1E0   	b16: shl  ax, 1
+  80 1f42 7303     	        jnc  0f
+  81 1f44 668917   	            mov  [edi], dx
+  82 1f47 83C702   	0:     add  edi, 2
+  83              	        next b16
+  83 1f4a 49       	> dec ecx
+  83 1f4b 75F2     	> jnz b16
+  84 1f4d C3       	    ret
+  85              	
+  86 1f4e 66AD     	bit32: lodsw
+  87 1f50 86E0     	    xchg al, ah
+  88 1f52 B9100000 	    mov  ecx, 16
+  88      00
+  89 1f57 D1E0     	b32: shl  eax, 1
+  90 1f59 7315     	        jnc  0f
+  91 1f5b 668917   	            mov  [edi], dx
+  92 1f5e 66895702 	            mov  [edi+2], dx
+  93 1f62 66899700 	            mov  [edi+hp*2], dx
+  93      080000
+  94 1f69 66899702 	            mov  [edi+hp*2+2], dx
+  94      080000
+  95 1f70 83C704   	0:     add  edi, 4
+  96              	        next b32
+  96 1f73 49       	> dec ecx
+  96 1f74 75E1     	> jnz b32
+  97 1f76 C3       	    ret
+  98              	
+  99 1f77 E8FF0100 	emit: call qcr
+  99      00
+ 100 1f7c 56       	    push esi
+ 101 1f7d 57       	    push edi
+ 102 1f7e 52       	    push edx
+ 103 1f7f 6BC030   	     imul eax, 16*24/8
+ 104 1f82 8DB00030 	     lea  esi, icons[eax]
+ 104      0000
+ 105 1f88 E871FFFF 	     call clip
+ 105      FF
+ 106 1f8d 8B15A81E 	     mov  edx, fore
+ 106      0000
+ 107 1f93 B9180000 	     mov  ecx, 24
+ 107      00
+ 108 1f98 51       	0:     push ecx
+ 109 1f99 E898FFFF 	        call bit16
+ 109      FF
+ 110 1f9e 81C7E007 	        add  edi, (hp-16)*2
+ 110      0000
+ 111 1fa4 59       	        pop  ecx
+ 112              	        next 0b
+ 112 1fa5 49       	> dec ecx
+ 112 1fa6 75F0     	> jnz 0b
+ 113 1fa8 5A       	    pop  edx
+ 114 1fa9 5F       	    pop  edi
+ 115 1faa 5E       	    pop  esi
+ 116              	bl_: drop
+ 116 1fab AD       	> lodsd
+ 117 1fac 8105541E 	space: add dword ptr  xy, iw*0x10000
+ 117      00000000 
+ 117      1600
+ 118 1fb6 C3       	    ret
+ 119              	
+ 120 1fb7 56       	emit2: push esi
+ 121 1fb8 57       	    push edi
+ 122 1fb9 52       	    push edx
+ 123 1fba 6BC030   	     imul eax, 16*24/8
+ 124 1fbd 8DB00030 	     lea  esi, icons[eax]
+ 124      0000
+ 125 1fc3 E836FFFF 	     call clip
+ 125      FF
+ 126 1fc8 8B15A81E 	     mov  edx, fore
+ 126      0000
+ 127 1fce B9180000 	     mov  ecx, 24
+ 127      00
+ 128 1fd3 51       	0:     push ecx
+ 129 1fd4 E875FFFF 	        call bit32
+ 129      FF
+ 130 1fd9 81C7C00F 	        add  edi, (2*hp-16*2)*2
+ 130      0000
+ 131 1fdf 59       	        pop  ecx
+ 132              	        next 0b
+ 132 1fe0 49       	> dec ecx
+ 132 1fe1 75F0     	> jnz 0b
+ 133 1fe3 5A       	    pop  edx
+ 134 1fe4 5F       	    pop  edi
+ 135 1fe5 5E       	    pop  esi
+ 136 1fe6 8105541E 	    add dword ptr  xy, iw*0x10000*2
+ 136      00000000 
+ 136      2C00
+ 137              	    drop
+ 137 1ff0 AD       	> lodsd
+ 138 1ff1 C3       	    ret
+ 139              	
+ 140 1ff2 E8D3FEFF 	text1: call white
+ 140      FF
+ 141 1ff7 C705581E 	    mov dword ptr  lm, 3
+ 141      00000300 
+ 141      0000
+ 142 2001 C7055C1E 	    mov dword ptr  rm, hc*iw
+ 142      0000F403 
+ 142      0000
+ 143 200b E9520100 	    jmp  top
+ 143      00
+ 144              	
+ 145 2010 E8E9FEFF 	line: call clip
+ 145      FF
+ 146 2015 8B0E     	    mov  ecx, [esi]
+ 147 2017 D1E1     	    shl  ecx, 1
+ 148 2019 29CF     	    sub  edi, ecx
+ 149 201b 89C1     	    mov  ecx, eax
+ 150 201d A1A81E00 	    mov  eax, fore
+ 150      00
+ 151 2022 F366AB   	    rep stosw
+ 152 2025 FF05541E 	    inc dword ptr  xy
+ 152      0000
+ 153              	    drop
+ 153 202b AD       	> lodsd
+ 154              	    drop
+ 154 202c AD       	> lodsd
+ 155 202d C3       	    ret
+ 156              	
+ 157 202e E8CBFEFF 	box: call clip
+ 157      FF
+ 158 2033 3D010300 	    cmp  eax, vp+1
+ 158      00
+ 159 2038 7805     	    js   0f
+ 160 203a B8000300 	        mov  eax, vp
+ 160      00
+ 161 203f 89C1     	0: mov  ecx, eax
+ 162 2041 2B0DB01E 	    sub  ecx, yc
+ 162      0000
+ 163 2047 7E31     	    jng  no
+ 164 2049 813E0104 	    cmp  dword ptr [esi], hp+1
+ 164      0000
+ 165 204f 7806     	    js   0f
+ 166 2051 C7060004 	        mov  dword ptr [esi], hp
+ 166      0000
+ 167 2057 A1AC1E00 	0: mov  eax, xc
+ 167      00
+ 168 205c 2906     	    sub  [esi], eax
+ 169 205e 7E1A     	    jng  no
+ 170 2060 BA000400 	    mov  edx, hp
+ 170      00
+ 171 2065 2B16     	    sub  edx, [esi]
+ 172 2067 D1E2     	    shl  edx, 1
+ 173 2069 A1A81E00 	    mov  eax, fore
+ 173      00
+ 174 206e 51       	0:     push ecx
+ 175 206f 8B0E     	         mov  ecx, [esi]
+ 176 2071 F366AB   	         rep stosw
+ 177 2074 01D7     	         add  edi, edx
+ 178 2076 59       	        pop  ecx
+ 179              	        next 0b
+ 179 2077 49       	> dec ecx
+ 179 2078 75F4     	> jnz 0b
+ 180              	no: drop
+ 180 207a AD       	> lodsd
+ 181              	    drop
+ 181 207b AD       	> lodsd
+ 182 207c C3       	    ret
+ 649              	
+ 650              	.equ yellow, 0x0ffff00
+ 651              	cyan: dup_
+ 651 207d 8D76FC   	> lea esi,[esi-4]
+ 651 2080 8906     	> mov [esi],eax
+ 652 2082 B8FFFF00 	    mov  eax, 0x0ffff
+ 652      00
+ 653 2087 E948FEFF 	    jmp  color
+ 653      FF
+ 654              	magenta: dup_
+ 654 208c 8D76FC   	> lea esi,[esi-4]
+ 654 208f 8906     	> mov [esi],eax
+ 655 2091 B8FF00FF 	    mov  eax, 0x0ff00ff
+ 655      00
+ 656 2096 E939FEFF 	    jmp  color
+ 656      FF
+ 657              	silver: dup_
+ 657 209b 8D76FC   	> lea esi,[esi-4]
+ 657 209e 8906     	> mov [esi],eax
+ 658 20a0 B8C0C0C0 	    mov  eax, 0x0c0c0c0
+ 658      00
+ 659 20a5 E92AFEFF 	    jmp  color
+ 659      FF
+ 660              	blue: dup_
+ 660 20aa 8D76FC   	> lea esi,[esi-4]
+ 660 20ad 8906     	> mov [esi],eax
+ 661 20af B8FF4040 	    mov  eax, 0x4040ff
+ 661      00
+ 662 20b4 E91BFEFF 	    jmp  color
+ 662      FF
+ 663              	red: dup_
+ 663 20b9 8D76FC   	> lea esi,[esi-4]
+ 663 20bc 8906     	> mov [esi],eax
+ 664 20be B80000FF 	    mov  eax, 0x0ff0000
+ 664      00
+ 665 20c3 E90CFEFF 	    jmp  color
+ 665      FF
+ 666              	green: dup_
+ 666 20c8 8D76FC   	> lea esi,[esi-4]
+ 666 20cb 8906     	> mov [esi],eax
+ 667 20cd B800FF00 	    mov  eax, 0x8000ff00
+ 667      80
+ 668 20d2 E9FDFDFF 	    jmp  color
+ 668      FF
+ 669              	
+ 670              	history: .rept 11 .byte 0; .endr
+ 670 20d7 00       	> .byte 0
+ 670 20d8 00       	> .byte 0
+ 670 20d9 00       	> .byte 0
+ 670 20da 00       	> .byte 0
+ 670 20db 00       	> .byte 0
+ 670 20dc 00       	> .byte 0
+ 670 20dd 00       	> .byte 0
+ 670 20de 00       	> .byte 0
+ 670 20df 00       	> .byte 0
+ 670 20e0 00       	> .byte 0
+ 670 20e1 00       	> .byte 0
+ 671 20e2 56       	echo_: push esi
+ 672 20e3 B90A0000 	     mov  ecx, 11-1
+ 672      00
+ 673 20e8 8D3DD720 	     lea  edi, history
+ 673      0000
+ 674 20ee 8D7701   	     lea  esi, [1+edi]
+ 675 20f1 F3A4     	     rep movsb
+ 676 20f3 5E       	    pop  esi
+ 677 20f4 A2E12000 	    mov  history+11-1, al
+ 677      00
+ 678              	    drop
+ 678 20f9 AD       	> lodsd
+ 679 20fa C3       	    ret
+ 680              	
+ 681              	right: dup_
+ 681 20fb 8D76FC   	> lea esi,[esi-4]
+ 681 20fe 8906     	> mov [esi],eax
+ 682 2100 B90B0000 	    mov  ecx, 11
+ 682      00
+ 683 2105 8D3DD720 	    lea  edi, history
+ 683      0000
+ 684 210b 31C0     	    xor  eax, eax
+ 685 210d F3AA     	    rep stosb
+ 686              	    drop
+ 686 210f AD       	> lodsd
+ 687 2110 C3       	    ret
+ 688              	
+ 689              	down: dup_
+ 689 2111 8D76FC   	> lea esi,[esi-4]
+ 689 2114 8906     	> mov [esi],eax
+ 690 2116 31D2     	    xor  edx, edx
+ 691 2118 B91E0000 	    mov  ecx, ih
+ 691      00
+ 692 211d F7F1     	    div  ecx
+ 693 211f 89D0     	    mov  eax, edx
+ 694 2121 81C2E57F 	    add  edx, 3*0x10000+0x8000-ih+3
+ 694      0300
+ 695 2127 8915541E 	    mov  xy, edx
+ 695      0000
+ 696 212d 85C0     	zero: test eax, eax
+ 697 212f B8000000 	    mov  eax, 0
+ 697      00
+ 698 2134 7501     	    jnz  0f
+ 699 2136 40       	        inc  eax
+ 700 2137 C3       	0: ret
+ 701              	
+ 702              	blank: dup_
+ 702 2138 8D76FC   	> lea esi,[esi-4]
+ 702 213b 8906     	> mov [esi],eax
+ 703 213d 31C0     	    xor  eax, eax
+ 704 213f A3541E00 	    mov  xy, eax
+ 704      00
+ 705 2144 E88BFDFF 	    call color
+ 705      FF
+ 706              	    dup_
+ 706 2149 8D76FC   	> lea esi,[esi-4]
+ 706 214c 8906     	> mov [esi],eax
+ 707 214e B8000400 	    mov  eax, hp
+ 707      00
+ 708              	    dup_
+ 708 2153 8D76FC   	> lea esi,[esi-4]
+ 708 2156 8906     	> mov [esi],eax
+ 709 2158 B8000300 	    mov  eax, vp
+ 709      00
+ 710 215d E9CCFEFF 	    jmp  box
+ 710      FF
+ 711              	
+ 712 2162 8B0D581E 	top: mov  ecx, lm
+ 712      0000
+ 713 2168 C1E110   	    shl  ecx, 16
+ 714 216b 83C103   	    add  ecx, 3
+ 715 216e 890D541E 	    mov  xy, ecx
+ 715      0000
+ 716 2174 890D601E 	    mov  xycr, ecx
+ 716      0000
+ 717 217a C3       	    ret
+ 718              	
+ 719 217b 668B0D56 	qcr: mov  cx, word ptr xy+2
+ 719      1E0000
+ 720 2182 663B0D5C 	    cmp  cx, word ptr rm
+ 720      1E0000
+ 721 2189 7819     	    js   0f
+ 722 218b 8B0D581E 	cr: mov  ecx, lm
+ 722      0000
+ 723 2191 C1E110   	    shl  ecx, 16
+ 724 2194 668B0D54 	    mov  cx, word ptr xy
+ 724      1E0000
+ 725 219b 83C11E   	    add  ecx, ih
+ 726 219e 890D541E 	    mov  xy, ecx
+ 726      0000
+ 727 21a4 C3       	0: ret
+ 728              	
+ 729 21a5 A3581E00 	lms: mov  lm, eax
+ 729      00
+ 730              	    drop
+ 730 21aa AD       	> lodsd
+ 731 21ab C3       	    ret
+ 732              	
+ 733 21ac A35C1E00 	rms: mov  rm, eax
+ 733      00
+ 734              	    drop
+ 734 21b1 AD       	> lodsd
+ 735 21b2 C3       	    ret
+ 736              	
+ 737 21b3 66A3541E 	at: mov  word ptr xy, ax
+ 737      0000
+ 738              	    drop
+ 738 21b9 AD       	> lodsd
+ 739 21ba 66A3561E 	    mov  word ptr xy+2, ax
+ 739      0000
+ 740              	    drop
+ 740 21c0 AD       	> lodsd
+ 741 21c1 C3       	    ret
+ 742              	
+ 743 21c2 66010554 	pat: add  word ptr xy, ax
+ 743      1E0000
+ 744              	    drop
+ 744 21c9 AD       	> lodsd
+ 745 21ca 66010556 	    add  word ptr xy+2, ax
+ 745      1E0000
+ 746              	    drop
+ 746 21d1 AD       	> lodsd
+ 747 21d2 C3       	    ret
+ 748              	
+ 749              	;#cl1: xor  eax, eax
+ 750              	;#    mov  [esi], eax
+ 751              	;#    ret
+ 752              	;#clip: movsx edx, word ptr xy
+ 753              	;#    cmp  edx, vp
+ 754              	;#    jns  cl1
+ 755              	;#    add  eax, edx
+ 756              	;#    js   cl1
+ 757              	;#    test edx, edx
+ 758              	;#    jns  0f
+ 759              	;#        xor  edx, edx
+ 760              	;#@@: cmp  eax, vp
+ 761              	;#    js   0f
+ 762              	;#        mov  eax, vp
+ 763              	;#@@: sub  eax, edx
+ 764              	;#    mov  word ptr xy, dx
+ 765              	;#    movsx edx, word ptr xy+2
+ 766              	;#    cmp  edx, hp
+ 767              	;#    jns  cl1
+ 768              	;#    add  [esi], edx
+ 769              	;#    js   cl1
+ 770              	;#    test edx, edx
+ 771              	;#    jns  0f
+ 772              	;#        xor  edx, edx
+ 773              	;#@@: cmp  dword ptr [esi], hp
+ 774              	;#    js   0f
+ 775              	;#        mov  dword ptr [esi], hp
+ 776              	;#@@: sub  [esi], edx
+ 777              	;#    mov  word ptr xy+2, dx
+ 778              	;#    ret
+ 779              	
+ 780              	octant: dup_
+ 780 21d3 8D76FC   	> lea esi,[esi-4]
+ 780 21d6 8906     	> mov [esi],eax
+ 781 21d8 B8430000 	    mov  eax, 0x43 ;# poly -last y+ x+ ;0x23 ; last y+ x+
+ 781      00
+ 782 21dd 8B5604   	    mov  edx, [4+esi]
+ 783 21e0 85D2     	    test edx, edx
+ 784 21e2 7907     	    jns  0f
+ 785 21e4 F7DA     	        neg  edx
+ 786 21e6 895604   	        mov  [4+esi], edx
+ 787 21e9 3401     	        xor  al, 1
+ 788 21eb 3B16     	0: cmp  edx, [esi]
+ 789 21ed 7902     	    jns  0f
+ 790 21ef 3404     	        xor  al, 4
+ 791 21f1 C3       	0: ret
+ 792              	
+ 793              	;# keyboard
+ 794 21f2 83C70C   	eight: add  edi, 12
+ 795 21f5 E8080000 	    call four
+ 795      00
+ 796 21fa E8ADFDFF 	    call space
+ 796      FF
+ 797 21ff 83EF10   	    sub  edi, 16
+ 798 2202 B9040000 	four: mov  ecx, 4
+ 798      00
+ 799 2207 51       	four1:  push ecx
+ 800              	        dup_
+ 800 2208 8D76FC   	> lea esi,[esi-4]
+ 800 220b 8906     	> mov [esi],eax
+ 801 220d 31C0     	        xor  eax, eax
+ 802 220f 8A4704   	        mov  al, [4+edi]
+ 803 2212 47       	        inc  edi
+ 804 2213 E85FFDFF 	        call emit
+ 804      FF
+ 805 2218 59       	        pop  ecx
+ 806              	        next four1
+ 806 2219 49       	> dec ecx
+ 806 221a 75EB     	> jnz four1
+ 807 221c C3       	    ret
+ 808              	
+ 809 221d BF44F409 	stack: mov  edi, godd-4
+ 809      00
+ 810 2222 8B15C502 	0: mov  edx, god
+ 810      0000
+ 811 2228 393A     	    cmp  [edx], edi
+ 812 222a 7311     	    jnc  0f
+ 813              	        dup_
+ 813 222c 8D76FC   	> lea esi,[esi-4]
+ 813 222f 8906     	> mov [esi],eax
+ 814 2231 8B07     	        mov  eax, [edi]
+ 815 2233 83EF04   	        sub  edi, 4
+ 816 2236 E8D40400 	        call qdot
+ 816      00
+ 817 223b EBE5     	        jmp  0b
+ 818 223d C3       	0: ret
+ 819              	
+ 820 223e E8AFFDFF 	keyboard: call text1
+ 820      FF
+ 821 2243 8B3D0C24 	    mov  edi, board
+ 821      0000
+ 822              	    dup_
+ 822 2249 8D76FC   	> lea esi,[esi-4]
+ 822 224c 8906     	> mov [esi],eax
+ 823 224e A11C2400 	    mov  eax, keyc
+ 823      00
+ 824 2253 E87CFCFF 	    call color
+ 824      FF
+ 825 2258 C7055C1E 	    mov dword ptr  rm, hc*iw
+ 825      0000F403 
+ 825      0000
+ 826 2262 C705581E 	    mov dword ptr  lm, hp-9*iw+3
+ 826      00003D03 
+ 826      0000
+ 827 226c C705541E 	    mov dword ptr  xy, (hp-9*iw+3)*0x10000+vp-4*ih+3
+ 827      00008B02 
+ 827      3D03
+ 828 2276 E877FFFF 	    call eight
+ 828      FF
+ 829 227b E872FFFF 	    call eight
+ 829      FF
+ 830 2280 E86DFFFF 	    call eight
+ 830      FF
+ 831 2285 E801FFFF 	    call cr
+ 831      FF
+ 832 228a 8105541E 	    add dword ptr  xy, 4*iw*0x10000
+ 832      00000000 
+ 832      5800
+ 833 2294 8B3D1024 	    mov  edi, shift
+ 833      0000
+ 834 229a 83C70C   	    add  edi, 4*4-4
+ 835 229d B9030000 	    mov  ecx, 3
+ 835      00
+ 836 22a2 E860FFFF 	    call four1
+ 836      FF
+ 837 22a7 C705581E 	    mov dword ptr  lm, 3
+ 837      00000300 
+ 837      0000
+ 838 22b1 66C70556 	    mov  word ptr xy+2, 3
+ 838      1E000003 
+ 838      00
+ 839 22ba E85EFFFF 	    call stack
+ 839      FF
+ 840 22bf 66C70556 	    mov  word ptr xy+2, hp-(11+9)*iw+3
+ 840      1E00004B 
+ 840      02
+ 841 22c8 8D3DD320 	    lea  edi, history-4
+ 841      0000
+ 842 22ce B90B0000 	    mov  ecx, 11
+ 842      00
+ 843 22d3 E92FFFFF 	    jmp  four1
+ 843      FF
+ 844              	
+ 845 22d8 0D0A010C 	alpha: .byte 015, 012,  1 , 014
+ 846 22dc 14020608 	      .byte 024,  2 ,  6 , 010
+ 847 22e0 13090F11 	      .byte 023, 011, 017, 021
+ 848 22e4 120B0E07 	      .byte 022, 013, 016,  7
+ 849 22e8 05030416 	      .byte  5 ,  3 ,  4 , 026
+ 850 22ec 17241510 	      .byte 027, 044, 025, 020
+ 851 22f0 191A1B00 	graphics: .byte 031, 032, 033,  0
+ 852 22f4 1C1D1E18 	         .byte 034, 035, 036, 030
+ 853 22f8 1F20212F 	         .byte 037, 040, 041, 057
+ 854 22fc 29282A2C 	         .byte 051, 050, 052, 054 ;# : ; ! @
+ 855 2300 2622252E 	         .byte 046, 042, 045, 056 ;# z j . ,
+ 856 2304 2D272B23 	         .byte 055, 047, 053, 043 ;# * / + -
+ 857 2308 191A1B00 	numbers: .byte 031, 032, 033,  0
+ 858 230c 1C1D1E18 	        .byte 034, 035, 036, 030
+ 859 2310 1F202100 	        .byte 037, 040, 041,  0
+ 860 2314 00000000 	        .byte  0,   0 ,  0 ,  0
+ 861 2318 00000000 	        .byte  0,   0 ,  0 ,  0
+ 862 231c 00000000 	        .byte  0,   0 ,  0 ,  0
+ 863 2320 191A1B00 	octals: .byte 031, 032, 033,  0
+ 864 2324 1C1D1E18 	       .byte 034, 035, 036, 030
+ 865 2328 1F202100 	       .byte 037, 040, 041,  0
+ 866 232c 0005130A 	       .byte  0 ,  5 , 023, 012
+ 867 2330 0010040E 	       .byte  0 , 020,  4 , 016
+ 868 2334 00000000 	       .byte  0 ,  0 ,  0 ,  0
+ 869 2338 3C04     	letter: cmp  al, 4
+ 870 233a 7809     	    js   0f
+ 871 233c 8B150C24 	        mov  edx, board
+ 871      0000
+ 872 2342 8A0402   	        mov  al, [edx][eax]
+ 873 2345 C3       	0: ret
+ 874              	
+ 875 2346 10111213 	keys: .byte 16, 17, 18, 19,  0,  0,  4,  5 ;# 20
+ 875      00000405 
+ 876 234e 06070000 	     .byte  6,  7,  0,  0,  0,  0, 20, 21
+ 876      00001415 
+ 877 2356 16170000 	     .byte 22, 23,  0,  0,  8,  9, 10, 11 ;# 40
+ 877      08090A0B 
+ 878 235e 00000000 	     .byte  0,  0,  0,  0, 24, 25, 26, 27
+ 878      18191A1B 
+ 879 2366 00010C0D 	     .byte  0,  1, 12, 13, 14, 15,  0,  0 ;# 60 n
+ 879      0E0F0000 
+ 880 236e 0302     	     .byte  3,  2 ;# alt space
+ 881              	key: dup_
+ 881 2370 8D76FC   	> lea esi,[esi-4]
+ 881 2373 8906     	> mov [esi],eax
+ 882 2375 31C0     	    xor  eax, eax
+ 883 2377 E858DFFF 	0:     call pause
+ 883      FF
+ 884 237c E464     	        in   al, 0144
+ 885 237e A801     	        test al, 1
+ 886 2380 74F5     	        jz   0b
+ 887 2382 E460     	    in   al, 0140
+ 888 2384 A8F0     	    test al, 0360
+ 889 2386 74EF     	    jz   0b
+ 890 2388 3C3A     	    cmp  al, 072
+ 891 238a 73EB     	    jnc  0b
+ 892 238c 8A803623 	    mov  al, [keys-020+eax]
+ 892      0000
+ 893 2392 C3       	    ret
+ 894              	
+ 895 2393 90       	.align 4
+ 896 2394 30240000 	graph0: .long nul0, nul0, nul0, alph0
+ 896      30240000 
+ 896      30240000 
+ 896      26260000 
+ 897 23a4 00000500 	       .byte  0 ,  0 ,  5 , 0 ;#     a
+ 898 23a8 33250000 	graph1: .long word0, x, lj, alph
+ 898      C9240000 
+ 898      9F240000 
+ 898      4E260000 
+ 899 23b8 15250500 	       .byte 025, 045,  5 , 0 ;# x . a
+ 900 23bc 30240000 	alpha0: .long nul0, nul0, number, star0
+ 900      30240000 
+ 900      C1250000 
+ 900      38260000 
+ 901 23cc 00212D00 	       .byte  0 , 041, 055, 0 ;#   9 *
+ 902 23d0 33250000 	alpha1: .long word0, x, lj, graph
+ 902      C9240000 
+ 902      9F240000 
+ 902      60260000 
+ 903 23e0 15252D00 	       .byte 025, 045, 055, 0 ;# x . *
+ 904 23e4 30240000 	 numb0: .long nul0, minus, alphn, octal
+ 904      B7250000 
+ 904      25260000 
+ 904      79250000 
+ 905 23f4 23050E00 	       .byte 043,  5 , 016, 0 ;# - a f
+ 906 23f8 BE250000 	 numb1: .long number0, xn, endn, number0
+ 906      91250000 
+ 906      19260000 
+ 906      BE250000 
+ 907 2408 15250000 	       .byte 025, 045,  0 , 0 ;# x .
+ 908              	
+ 909 240c D4220000 	board:   .long alpha-4
+ 910 2410 BC230000 	shift:   .long alpha0
+ 911 2414 0A000000 	base:    .long 10
+ 912 2418 3B250000 	current: .long decimal
+ 913 241c 00FFFF00 	keyc:    .long yellow
+ 914 2420 01000000 	chars:   .long 1
+ 915 2424 B4030000 	aword:   .long ex1
+ 916 2428 33070000 	anumber: .long nul
+ 917 242c 01000000 	words:   .long 1
+ 918              	
+ 919              	nul0: drop
+ 919 2430 AD       	> lodsd
+ 920 2431 EB16     	    jmp  0f
+ 921              	accept:
+ 922 2433 C7051024 	acceptn: mov dword ptr  shift, offset alpha0
+ 922      0000BC23 
+ 922      0000
+ 923 243d 8D3DD422 	    lea  edi, alpha-4
+ 923      0000
+ 924 2443 893D0C24 	accept1: mov  board, edi
+ 924      0000
+ 925 2449 E822FFFF 	0: call key
+ 925      FF
+ 926 244e 3C04     	    cmp  al, 4
+ 927 2450 0F892502 	    jns  first
+ 927      0000
+ 928 2456 8B151024 	    mov  edx, shift
+ 928      0000
+ 929 245c FF2482   	    jmp  dword ptr [edx+eax*4]
+ 930              	
+ 931 245f 1C       	bits: .byte 28
+ 932 2460 83C050   	0: add  eax, 0120
+ 933 2463 B107     	    mov  cl, 7
+ 934 2465 EB0D     	    jmp  0f
+ 935 2467 3C10     	pack: cmp  al, 020
+ 936 2469 73F5     	    jnc  0b
+ 937 246b B104     	        mov  cl, 4
+ 938 246d A808     	        test al, 010
+ 939 246f 7403     	        jz   0f
+ 940 2471 41       	        inc  ecx
+ 941 2472 3418     	        xor  al, 030
+ 942 2474 89C2     	0: mov  edx, eax
+ 943 2476 88CD     	    mov  ch, cl
+ 944 2478 380D5F24 	0: cmp  bits, cl
+ 944      0000
+ 945 247e 7308     	    jnc  0f
+ 946 2480 D0E8     	        shr  al, 1
+ 947 2482 7222     	        jc   full
+ 948 2484 FEC9     	        dec  cl
+ 949 2486 EBF0     	        jmp  0b
+ 950 2488 D326     	0: shl  dword ptr [esi], cl
+ 951 248a 3106     	    xor  [esi], eax
+ 952 248c 280D5F24 	    sub  bits, cl
+ 952      0000
+ 953 2492 C3       	    ret
+ 954              	
+ 955 2493 8A0D5F24 	lj0: mov  cl, bits
+ 955      0000
+ 956 2499 80C104   	    add  cl, 4
+ 957 249c D326     	    shl  dword ptr [esi], cl
+ 958 249e C3       	    ret
+ 959              	
+ 960 249f E8EFFFFF 	lj: call lj0
+ 960      FF
+ 961              	    drop
+ 961 24a4 AD       	> lodsd
+ 962 24a5 C3       	    ret
+ 963              	
+ 964 24a6 E8E8FFFF 	full: call lj0
+ 964      FF
+ 965 24ab FF052C24 	    inc dword ptr  words
+ 965      0000
+ 966 24b1 C7055F24 	    mov dword ptr  bits, 28
+ 966      00001C00 
+ 966      0000
+ 967 24bb 282D5F24 	    sub  bits, ch
+ 967      0000
+ 968 24c1 89D0     	    mov  eax, edx
+ 969              	    dup_
+ 969 24c3 8D76FC   	> lea esi,[esi-4]
+ 969 24c6 8906     	> mov [esi],eax
+ 970 24c8 C3       	    ret
+ 971              	
+ 972 24c9 E82DFCFF 	x:  call right
+ 972      FF
+ 973 24ce A12C2400 	    mov  eax, words
+ 973      00
+ 974 24d3 8D3486   	    lea  esi, [eax*4+esi]
+ 975              	    drop
+ 975 24d6 AD       	> lodsd
+ 976 24d7 E957FFFF 	    jmp  accept
+ 976      FF
+ 977              	
+ 978 24dc E81AFCFF 	word_: call right
+ 978      FF
+ 979 24e1 C7052C24 	    mov dword ptr  words, 1
+ 979      00000100 
+ 979      0000
+ 980 24eb C7052024 	    mov dword ptr  chars, 1
+ 980      00000100 
+ 980      0000
+ 981              	    dup_
+ 981 24f5 8D76FC   	> lea esi,[esi-4]
+ 981 24f8 8906     	> mov [esi],eax
+ 982 24fa C7060000 	    mov  dword ptr [esi], 0
+ 982      0000
+ 983 2500 C7055F24 	    mov dword ptr  bits, 28
+ 983      00001C00 
+ 983      0000
+ 984 250a E829FEFF 	word1:  call letter
+ 984      FF
+ 985 250f 7909     	        jns  0f
+ 986 2511 8B151024 	            mov  edx, shift
+ 986      0000
+ 987 2517 FF2482   	            jmp  dword ptr [edx+eax*4]
+ 988 251a 84C0     	0:     test al, al
+ 989 251c 7415     	        jz   word0
+ 990              	        dup_
+ 990 251e 8D76FC   	> lea esi,[esi-4]
+ 990 2521 8906     	> mov [esi],eax
+ 991 2523 E8BAFBFF 	        call echo_
+ 991      FF
+ 992 2528 E83AFFFF 	        call pack
+ 992      FF
+ 993 252d FF052024 	        inc dword ptr  chars
+ 993      0000
+ 994              	word0:  drop
+ 994 2533 AD       	> lodsd
+ 995 2534 E837FEFF 	        call key
+ 995      FF
+ 996 2539 EBCF     	        jmp  word1
+ 997              	
+ 998 253b C7051424 	decimal: mov dword ptr  base, 10
+ 998      00000A00 
+ 998      0000
+ 999 2545 C7051024 	    mov dword ptr  shift, offset numb0
+ 999      0000E423 
+ 999      0000
+ 1000 254f C7050C24 	    mov dword ptr  board, offset numbers-4
+ 1000      00000423 
+ 1000      0000
+ 1001 2559 C3       	    ret
+ 1002              	
+ 1003 255a C7051424 	hex: mov dword ptr  base, 16
+ 1003      00001000 
+ 1003      0000
+ 1004 2564 C7051024 	    mov dword ptr  shift, offset numb0 ;# oct0
+ 1004      0000E423 
+ 1004      0000
+ 1005 256e C7050C24 	    mov dword ptr  board, offset octals-4
+ 1005      00001C23 
+ 1005      0000
+ 1006 2578 C3       	    ret
+ 1007              	
+ 1008 2579 81351824 	octal: xor dword ptr current, (offset decimal-offset start) xor (offset hex-offset start)
+ 1008      00006100 
+ 1008      0000
+ 1009 2583 8035F623 	    xor  byte ptr numb0+18, 041 xor 016 ;# f vs 9
+ 1009      00002F
+ 1010 258a E889FEFF 	    call current
+ 1010      FF
+ 1011 258f EB2D     	    jmp  number0
+ 1012              	
+ 1013              	xn: drop
+ 1013 2591 AD       	> lodsd
+ 1014              	    drop
+ 1014 2592 AD       	> lodsd
+ 1015 2593 E99BFEFF 	    jmp  acceptn
+ 1015      FF
+ 1016              	
+ 1017              	;#      .byte  0,  0,  0,  0
+ 1018 2598 0E0A0000 	digit: .byte 14, 10,  0,  0
+ 1019 259c 00000C00 	      .byte  0,  0, 12,  0,  0,  0, 15,  0
+ 1019      00000F00 
+ 1020 25a4 0D00000B 	      .byte 13,  0,  0, 11,  0,  0,  0,  0
+ 1020      00000000 
+ 1021 25ac 00010203 	      .byte  0,  1,  2,  3,  4,  5,  6,  7
+ 1021      04050607 
+ 1022 25b4 0809     	      .byte  8,  9
+ 1023 25b6 00       	sign: .byte 0
+ 1024              	minus: ;# mov  al, 043 ; -
+ 1025 25b7 A2B62500 	    mov  sign, al
+ 1025      00
+ 1026 25bc EB4E     	    jmp  number2
+ 1027              	
+ 1028              	number0: drop
+ 1028 25be AD       	> lodsd
+ 1029 25bf EB11     	    jmp  number3
+ 1030 25c1 E852FEFF 	number: call current
+ 1030      FF
+ 1031 25c6 C705B625 	    mov dword ptr  sign, 0
+ 1031      00000000 
+ 1031      0000
+ 1032 25d0 31C0     	    xor  eax, eax
+ 1033 25d2 E899FDFF 	number3: call key
+ 1033      FF
+ 1034 25d7 E85CFDFF 	    call letter
+ 1034      FF
+ 1035 25dc 7909     	    jns  0f
+ 1036 25de 8B151024 	        mov  edx, shift
+ 1036      0000
+ 1037 25e4 FF2482   	        jmp  dword ptr [edx+eax*4]
+ 1038 25e7 84C0     	0: test al, al
+ 1039 25e9 74D3     	    jz   number0
+ 1040 25eb 8A809425 	    mov  al, [digit-4+eax]
+ 1040      0000
+ 1041 25f1 F705B625 	    test dword ptr sign, 037
+ 1041      00001F00 
+ 1041      0000
+ 1042 25fb 7402     	    jz   0f
+ 1043 25fd F7D8     	        neg  eax
+ 1044 25ff 8B16     	0: mov  edx, [esi]
+ 1045 2601 0FAF1514 	    imul edx, base
+ 1045      240000
+ 1046 2608 01C2     	    add  edx, eax
+ 1047 260a 8916     	0: mov  [esi], edx
+ 1048              	number2: drop
+ 1048 260c AD       	> lodsd
+ 1049 260d C7051024 	    mov dword ptr  shift, offset numb1
+ 1049      0000F823 
+ 1049      0000
+ 1050 2617 EBB9     	    jmp  number3
+ 1051              	
+ 1052              	endn: drop
+ 1052 2619 AD       	> lodsd
+ 1053 261a FF152824 	    call [anumber]
+ 1053      0000
+ 1054 2620 E90EFEFF 	    jmp  acceptn
+ 1054      FF
+ 1055              	
+ 1056              	alphn: drop
+ 1056 2625 AD       	> lodsd
+ 1057 2626 C7051024 	alph0: mov dword ptr  shift, offset alpha0
+ 1057      0000BC23 
+ 1057      0000
+ 1058 2630 8D3DD422 	    lea  edi, alpha-4
+ 1058      0000
+ 1059 2636 EB10     	    jmp  0f
+ 1060 2638 C7051024 	star0: mov dword ptr  shift, offset graph0
+ 1060      00009423 
+ 1060      0000
+ 1061 2642 8D3DEC22 	    lea  edi, graphics-4
+ 1061      0000
+ 1062              	0: drop
+ 1062 2648 AD       	> lodsd
+ 1063 2649 E9F5FDFF 	    jmp  accept1
+ 1063      FF
+ 1064              	
+ 1065 264e C7051024 	alph: mov dword ptr  shift, offset alpha1
+ 1065      0000D023 
+ 1065      0000
+ 1066 2658 8D3DD422 	    lea  edi, alpha-4
+ 1066      0000
+ 1067 265e EB10     	    jmp  0f
+ 1068 2660 C7051024 	graph: mov dword ptr  shift, offset graph1
+ 1068      0000A823 
+ 1068      0000
+ 1069 266a 8D3DEC22 	    lea  edi, graphics-4
+ 1069      0000
+ 1070 2670 893D0C24 	0: mov  board, edi
+ 1070      0000
+ 1071 2676 E9B8FEFF 	    jmp  word0
+ 1071      FF
+ 1072              	
+ 1073 267b 83051024 	first: add dword ptr  shift, 4*4+4
+ 1073      000014
+ 1074 2682 E855FEFF 	    call word_
+ 1074      FF
+ 1075 2687 FF152424 	    call [aword]
+ 1075      0000
+ 1076 268d E9A1FDFF 	    jmp  accept
+ 1076      FF
+ 1077              	
+ 1078 2692 18191A1B 	hicon: .byte 030, 031, 032, 033, 034, 035, 036, 037
+ 1078      1C1D1E1F 
+ 1079 269a 20210513 	      .byte 040, 041,  5 , 023, 012, 020,  4 , 016
+ 1079      0A10040E 
+ 1080              	edig1: dup_
+ 1080 26a2 8D76FC   	> lea esi,[esi-4]
+ 1080 26a5 8906     	> mov [esi],eax
+ 1081 26a7 51       	edig: push ecx
+ 1082 26a8 8A809226 	     mov  al, hicon[eax]
+ 1082      0000
+ 1083 26ae E8C4F8FF 	     call emit
+ 1083      FF
+ 1084 26b3 59       	    pop  ecx
+ 1085 26b4 C3       	    ret
+ 1086              	
+ 1087 26b5 C1C004   	odig: rol  eax, 4
+ 1088              	    dup_
+ 1088 26b8 8D76FC   	> lea esi,[esi-4]
+ 1088 26bb 8906     	> mov [esi],eax
+ 1089 26bd 83E00F   	    and  eax, 0x0f
+ 1090 26c0 C3       	    ret
+ 1091              	
+ 1092 26c1 89C2     	hdotn: mov  edx, eax
+ 1093 26c3 F7D8     	    neg  eax
+ 1094 26c5 8D0C8520 	    lea  ecx, [32+eax*4]
+ 1094      000000
+ 1095              	    drop
+ 1095 26cc AD       	> lodsd
+ 1096 26cd D3C0     	    rol  eax, cl
+ 1097 26cf 89D1     	    mov  ecx, edx
+ 1098 26d1 EB05     	    jmp  0f
+ 1099 26d3 B9080000 	hdot: mov  ecx, 8
+ 1099      00
+ 1100 26d8 E8D8FFFF 	0:     call odig
+ 1100      FF
+ 1101 26dd E8C5FFFF 	        call edig
+ 1101      FF
+ 1102              	        next 0b
+ 1102 26e2 49       	> dec ecx
+ 1102 26e3 75F3     	> jnz 0b
+ 1103              	    drop
+ 1103 26e5 AD       	> lodsd
+ 1104 26e6 C3       	    ret
+ 1105              	
+ 1106 26e7 B9070000 	dot: mov  ecx, 7
+ 1106      00
+ 1107 26ec E8C4FFFF 	0:     call odig
+ 1107      FF
+ 1108 26f1 7519     	        jnz  @h
+ 1109              	        drop
+ 1109 26f3 AD       	> lodsd
+ 1110              	        next 0b
+ 1110 26f4 49       	> dec ecx
+ 1110 26f5 75F5     	> jnz 0b
+ 1111 26f7 41       	    inc  ecx
+ 1112 26f8 E8B8FFFF 	0:     call odig
+ 1112      FF
+ 1113 26fd E8A5FFFF 	@h1:    call edig
+ 1113      FF
+ 1114              	        next 0b
+ 1114 2702 49       	> dec ecx
+ 1114 2703 75F3     	> jnz 0b
+ 1115 2705 E8A2F8FF 	    call space
+ 1115      FF
+ 1116              	    drop
+ 1116 270a AD       	> lodsd
+ 1117 270b C3       	    ret
+ 1118 270c 41       	@h: inc  ecx
+ 1119 270d EBEE     	    jmp  @h1
+ 1120              	
+ 1121 270f 833D1424 	qdot: cmp dword ptr  base, 10
+ 1121      00000A
+ 1122 2716 75CF     	    jnz  dot
+ 1123 2718 89C2     	dot10: mov  edx, eax
+ 1124 271a 85D2     	    test edx, edx
+ 1125 271c 7911     	    jns  0f
+ 1126 271e F7DA     	        neg  edx
+ 1127              	        dup_
+ 1127 2720 8D76FC   	> lea esi,[esi-4]
+ 1127 2723 8906     	> mov [esi],eax
+ 1128 2725 B8230000 	        mov  eax, 043
+ 1128      00
+ 1129 272a E848F8FF 	        call emit
+ 1129      FF
+ 1130 272f B9080000 	0: mov  ecx, 8
+ 1130      00
+ 1131 2734 89D0     	0:     mov  eax, edx
+ 1132 2736 31D2     	        xor  edx, edx
+ 1133 2738 F7348D14 	        div dword ptr  tens[ecx*4]
+ 1133      2A0000
+ 1134 273f 85C0     	        test eax, eax
+ 1135 2741 7510     	        jnz  d_1
+ 1136 2743 49       	        dec  ecx
+ 1137 2744 79EE     	        jns  0b
+ 1138 2746 EB13     	    jmp  d_2
+ 1139 2748 89D0     	0:     mov  eax, edx
+ 1140 274a 31D2     	        xor  edx, edx
+ 1141 274c F7348D14 	        div dword ptr  tens[ecx*4]
+ 1141      2A0000
+ 1142 2753 E84AFFFF 	d_1:    call edig1
+ 1142      FF
+ 1143 2758 49       	        dec  ecx
+ 1144 2759 79ED     	        jns  0b
+ 1145 275b 89D0     	d_2: mov  eax, edx
+ 1146 275d E840FFFF 	    call edig1
+ 1146      FF
+ 1147 2762 E845F8FF 	    call space ;# spcr
+ 1147      FF
+ 1148              	    drop
+ 1148 2767 AD       	> lodsd
+ 1149 2768 C3       	    ret
+ 1150              	
+ 1151              	unpack: dup_
+ 1151 2769 8D76FC   	> lea esi,[esi-4]
+ 1151 276c 8906     	> mov [esi],eax
+ 1152 276e 85C0     	    test eax, eax
+ 1153 2770 780A     	    js   0f
+ 1154 2772 C12604   	        shl  dword ptr [esi], 4
+ 1155 2775 C1C004   	        rol  eax, 4
+ 1156 2778 83E007   	        and  eax, 7
+ 1157 277b C3       	        ret
+ 1158 277c D1E0     	0: shl  eax, 1
+ 1159 277e 780C     	    js   0f
+ 1160 2780 C12605   	        shl  dword ptr [esi], 5
+ 1161 2783 C1C004   	        rol  eax, 4
+ 1162 2786 83E007   	        and  eax, 7
+ 1163 2789 3408     	        xor  al, 010
+ 1164 278b C3       	        ret
+ 1165 278c C12607   	0: shl  dword ptr [esi], 7
+ 1166 278f C1C006   	    rol  eax, 6
+ 1167 2792 83E03F   	    and  eax, 077
+ 1168 2795 2C10     	    sub  al, 020
+ 1169 2797 C3       	    ret
+ 1170              	
+ 1171              	qring: dup_
+ 1171 2798 8D76FC   	> lea esi,[esi-4]
+ 1171 279b 8906     	> mov [esi],eax
+ 1172 279d FF06     	    inc  dword ptr [esi]
+ 1173 279f 393D402A 	    cmp  curs, edi ;# from abort, insert
+ 1173      0000
+ 1174 27a5 7505     	    jnz  0f
+ 1175 27a7 A3402A00 	        mov  curs, eax
+ 1175      00
+ 1176 27ac 3B05402A 	0: cmp  eax, curs
+ 1176      0000
+ 1177 27b2 740A     	    jz   ring
+ 1178 27b4 7906     	    jns  0f
+ 1179 27b6 893D482A 	        mov  pcad, edi
+ 1179      0000
+ 1180              	0: drop
+ 1180 27bc AD       	> lodsd
+ 1181 27bd C3       	    ret
+ 1182              	
+ 1183 27be 893D442A 	ring: mov  cad, edi
+ 1183      0000
+ 1184 27c4 812D541E 	    sub dword ptr  xy, iw*0x10000 ;# bksp
+ 1184      00000000 
+ 1184      1600
+ 1185              	    dup_
+ 1185 27ce 8D76FC   	> lea esi,[esi-4]
+ 1185 27d1 8906     	> mov [esi],eax
+ 1186 27d3 B80040E0 	    mov  eax, 0x0e04000
+ 1186      00
+ 1187 27d8 E8F7F6FF 	    call color
+ 1187      FF
+ 1188 27dd B8300000 	    mov  eax, 060
+ 1188      00
+ 1189 27e2 668B0D56 	    mov  cx, word ptr xy+2
+ 1189      1E0000
+ 1190 27e9 663B0D5C 	    cmp  cx, word ptr rm
+ 1190      1E0000
+ 1191 27f0 7810     	    js   0f
+ 1192 27f2 E880F7FF 	        call emit
+ 1192      FF
+ 1193 27f7 812D541E 	        sub dword ptr  xy, iw*0x10000 ;# bksp
+ 1193      00000000 
+ 1193      1600
+ 1194 2801 C3       	        ret
+ 1195 2802 E970F7FF 	0: jmp  emit
+ 1195      FF
+ 1196              	
+ 1197 2807 668B0D56 	rw: mov  cx, word ptr xy+2
+ 1197      1E0000
+ 1198 280e 663B0D58 	    cmp  cx, word ptr lm
+ 1198      1E0000
+ 1199 2815 7405     	    jz   0f
+ 1200 2817 E86FF9FF 	        call cr
+ 1200      FF
+ 1201 281c E898F8FF 	0: call red
+ 1201      FF
+ 1202 2821 E99F0000 	    jmp  type_
+ 1202      00
+ 1203              	
+ 1204 2826 E89DF8FF 	gw: call green
+ 1204      FF
+ 1205 282b E9950000 	    jmp  type_
+ 1205      00
+ 1206 2830 E848F8FF 	mw: call cyan
+ 1206      FF
+ 1207 2835 E98B0000 	    jmp  type_
+ 1207      00
+ 1208              	ww: dup_
+ 1208 283a 8D76FC   	> lea esi,[esi-4]
+ 1208 283d 8906     	> mov [esi],eax
+ 1209 283f B800FFFF 	    mov  eax, yellow
+ 1209      00
+ 1210 2844 E88BF6FF 	    call color
+ 1210      FF
+ 1211 2849 EB7A     	    jmp  type_
+ 1212              	
+ 1213 284b 812D541E 	type0: sub dword ptr  xy, iw*0x10000 ;# call bspcr
+ 1213      00000000 
+ 1213      1600
+ 1214 2855 F704BDFC 	    test dword ptr [-4+edi*4], -020
+ 1214      FFFFFFF0 
+ 1214      FFFFFF
+ 1215 2860 7563     	    jnz  type1
+ 1216 2862 4F       	        dec  edi
+ 1217 2863 893D4C2A 	        mov  lcad, edi
+ 1217      0000
+ 1218 2869 E83EF7FF 	        call space
+ 1218      FF
+ 1219 286e E825FFFF 	        call qring
+ 1219      FF
+ 1220 2873 5A       	        pop  edx ;# .end of block
+ 1221              	        drop
+ 1221 2874 AD       	> lodsd
+ 1222 2875 E9C4F9FF 	        jmp  keyboard
+ 1222      FF
+ 1223              	
+ 1224 287a E84BF6FF 	cap: call white
+ 1224      FF
+ 1225              	    dup_
+ 1225 287f 8D76FC   	> lea esi,[esi-4]
+ 1225 2882 8906     	> mov [esi],eax
+ 1226 2884 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 1226      FFFFFF
+ 1227 288b 83E0F0   	    and  eax, -020
+ 1228 288e E8D6FEFF 	    call unpack
+ 1228      FF
+ 1229 2893 0430     	    add  al, 48
+ 1230 2895 E8DDF6FF 	    call emit
+ 1230      FF
+ 1231 289a EB38     	    jmp  type2
+ 1232              	
+ 1233 289c E829F6FF 	caps: call white
+ 1233      FF
+ 1234              	    dup_
+ 1234 28a1 8D76FC   	> lea esi,[esi-4]
+ 1234 28a4 8906     	> mov [esi],eax
+ 1235 28a6 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 1235      FFFFFF
+ 1236 28ad 83E0F0   	    and  eax, -020
+ 1237 28b0 E8B4FEFF 	0:     call unpack
+ 1237      FF
+ 1238 28b5 742B     	        jz   0f
+ 1239 28b7 0430     	        add  al, 48
+ 1240 28b9 E8B9F6FF 	        call emit
+ 1240      FF
+ 1241 28be EBF0     	        jmp  0b
+ 1242              	
+ 1243 28c0 E805F6FF 	text: call white
+ 1243      FF
+ 1244              	type_:
+ 1245              	type1: dup_
+ 1245 28c5 8D76FC   	> lea esi,[esi-4]
+ 1245 28c8 8906     	> mov [esi],eax
+ 1246 28ca 8B04BDFC 	    mov  eax, [-4+edi*4]
+ 1246      FFFFFF
+ 1247 28d1 83E0F0   	    and  eax, -020
+ 1248 28d4 E890FEFF 	type2:  call unpack
+ 1248      FF
+ 1249 28d9 7407     	        jz   0f
+ 1250 28db E897F6FF 	        call emit
+ 1250      FF
+ 1251 28e0 EBF2     	        jmp  type2
+ 1252 28e2 E8C5F6FF 	0: call space
+ 1252      FF
+ 1253              	    drop
+ 1253 28e7 AD       	> lodsd
+ 1254              	    drop
+ 1254 28e8 AD       	> lodsd
+ 1255 28e9 C3       	    ret
+ 1256              	
+ 1257 28ea 8B14BDFC 	gsw: mov  edx, [-4+edi*4]
+ 1257      FFFFFF
+ 1258 28f1 C1FA05   	    sar  edx, 5
+ 1259 28f4 EB12     	    jmp  gnw1
+ 1260              	
+ 1261 28f6 E891F7FF 	var: call magenta
+ 1261      FF
+ 1262 28fb E8C5FFFF 	    call type_
+ 1262      FF
+ 1263 2900 8B14BD00 	gnw: mov  edx, [edi*4]
+ 1263      000000
+ 1264 2907 47       	    inc  edi
+ 1265              	gnw1: dup_
+ 1265 2908 8D76FC   	> lea esi,[esi-4]
+ 1265 290b 8906     	> mov [esi],eax
+ 1266 290d B800F800 	    mov  eax, 0x0f800 ;# green
+ 1266      00
+ 1267 2912 813D382A 	    cmp dword ptr  bas, offset dot10
+ 1267      00001827 
+ 1267      0000
+ 1268 291c 7436     	    jz   0f
+ 1269 291e B800C000 	        mov  eax, 0x0c000 ;# dark green
+ 1269      00
+ 1270 2923 EB2F     	    jmp  0f
+ 1271              	
+ 1272 2925 8B14BDFC 	sw: mov  edx, [-4+edi*4]
+ 1272      FFFFFF
+ 1273 292c C1FA05   	    sar  edx, 5
+ 1274 292f EB08     	    jmp  nw1
+ 1275              	
+ 1276 2931 8B14BD00 	nw: mov  edx, [edi*4]
+ 1276      000000
+ 1277 2938 47       	    inc  edi
+ 1278              	nw1: dup_
+ 1278 2939 8D76FC   	> lea esi,[esi-4]
+ 1278 293c 8906     	> mov [esi],eax
+ 1279 293e B800FFFF 	    mov  eax, yellow
+ 1279      00
+ 1280 2943 813D382A 	    cmp dword ptr  bas, offset dot10
+ 1280      00001827 
+ 1280      0000
+ 1281 294d 7405     	    jz   0f
+ 1282 294f B800C0C0 	        mov  eax, 0x0c0c000 ;# dark yellow
+ 1282      00
+ 1283 2954 E87BF5FF 	0: call color
+ 1283      FF
+ 1284              	    dup_
+ 1284 2959 8D76FC   	> lea esi,[esi-4]
+ 1284 295c 8906     	> mov [esi],eax
+ 1285 295e 89D0     	    mov  eax, edx
+ 1286 2960 FF25382A 	    jmp  [bas]
+ 1286      0000
+ 1287              	
+ 1288 2966 E8A6D9FF 	refresh: call show
+ 1288      FF
+ 1289 296b E8C8F7FF 	    call blank
+ 1289      FF
+ 1290 2970 E87DF6FF 	    call text1
+ 1290      FF
+ 1291              	    dup_            ;# counter
+ 1291 2975 8D76FC   	> lea esi,[esi-4]
+ 1291 2978 8906     	> mov [esi],eax
+ 1292 297a A14C2A00 	    mov  eax, lcad
+ 1292      00
+ 1293 297f A3442A00 	    mov  cad, eax ;# for curs beyond .end
+ 1293      00
+ 1294 2984 31C0     	    xor  eax, eax
+ 1295 2986 8B3D3C2A 	    mov  edi, blk
+ 1295      0000
+ 1296 298c C1E708   	    shl  edi, 10-2
+ 1297 298f 893D482A 	    mov  pcad, edi ;# for curs=0
+ 1297      0000
+ 1298 2995 F704BD00 	ref1:   test dword ptr [edi*4], 0x0f
+ 1298      0000000F 
+ 1298      000000
+ 1299 29a0 7405     	        jz   0f
+ 1300 29a2 E8F1FDFF 	            call qring
+ 1300      FF
+ 1301 29a7 8B14BD00 	0:     mov  edx, [edi*4]
+ 1301      000000
+ 1302 29ae 47       	        inc  edi
+ 1303 29af C705382A 	        mov dword ptr  bas, offset dot10
+ 1303      00001827 
+ 1303      0000
+ 1304 29b9 F6C210   	        test dl, 020
+ 1305 29bc 740A     	        jz   0f
+ 1306 29be C705382A 	            mov dword ptr  bas, offset dot
+ 1306      0000E726 
+ 1306      0000
+ 1307 29c8 83E20F   	0:     and  edx, 017
+ 1308 29cb FF1495D4 	        call display[edx*4]
+ 1308      290000
+ 1309 29d2 EBC1     	        jmp  ref1
+ 1310              	
+ 1311              	.align 4
+ 1312 29d4 4B280000 	display: .long type0, ww, nw, rw
+ 1312      3A280000 
+ 1312      31290000 
+ 1312      07280000 
+ 1313 29e4 26280000 	        .long gw, gnw, gsw, mw
+ 1313      00290000 
+ 1313      EA280000 
+ 1313      30280000 
+ 1314 29f4 25290000 	        .long sw, text, cap, caps
+ 1314      C0280000 
+ 1314      7A280000 
+ 1314      9C280000 
+ 1315 2a04 F6280000 	        .long var, nul, nul, nul
+ 1315      33070000 
+ 1315      33070000 
+ 1315      33070000 
+ 1316 2a14 0A000000 	tens: .long 10, 100, 1000, 10000, 100000, 1000000
+ 1316      64000000 
+ 1316      E8030000 
+ 1316      10270000 
+ 1316      A0860100 
+ 1317 2a2c 80969800 	     .long 10000000, 100000000, 1000000000
+ 1317      00E1F505 
+ 1317      00CA9A3B 
+ 1318 2a38 18270000 	bas: .long dot10
+ 1319 2a3c 12000000 	blk:    .long 18
+ 1320 2a40 00000000 	curs:   .long 0
+ 1321 2a44 00000000 	cad:    .long 0
+ 1322 2a48 00000000 	pcad:   .long 0
+ 1323 2a4c 00000000 	lcad:   .long 0
+ 1324 2a50 00700900 	trash:  .long buffer*4
+ 1325 2a54 33070000 	ekeys: .long nul, del, eout, destack
+ 1325      912D0000 
+ 1325      332C0000 
+ 1325      6A2C0000 
+ 1326 2a64 152B0000 	      .long act1, act3, act4, shadow
+ 1326      192B0000 
+ 1326      1D2B0000 
+ 1326      C82B0000 
+ 1327 2a74 7E2B0000 	      .long mcur, mmcur, ppcur, pcur
+ 1327      8D2B0000 
+ 1327      A12B0000 
+ 1327      862B0000 
+ 1328 2a84 B42B0000 	      .long mblk, actv, act7, pblk
+ 1328      512B0000 
+ 1328      2D2B0000 
+ 1328      A92B0000 
+ 1329 2a94 33070000 	      .long nul, act11, act10, act9
+ 1329      292B0000 
+ 1329      252B0000 
+ 1329      212B0000 
+ 1330 2aa4 33070000 	      .long nul, nul, nul, nul
+ 1330      33070000 
+ 1330      33070000 
+ 1330      33070000 
+ 1331 2ab4 33070000 	ekbd0: .long nul, nul, nul, nul
+ 1331      33070000 
+ 1331      33070000 
+ 1331      33070000 
+ 1332 2ac4 15250700 	     .byte 025, 045,  7 ,  0  ;# x  .  i
+ 1333 2ac8 0F010D2D 	ekbd: .byte 017,  1 , 015, 055 ;# w  r  g  *
+ 1334 2acc 0C161001 	     .byte 014, 026, 020,  1  ;# l  u  d  r
+ 1335 2ad0 23090A2B 	     .byte 043, 011, 012, 053 ;# -  m  c  +
+ 1336 2ad4 00383A02 	     .byte  0 , 070, 072,  2  ;#    s  c  t
+ 1337 2ad8 00000000 	     .byte  0 ,  0 ,  0 ,  0
+ 1338 2adc 00000000 	     .byte  0 ,  0 ,  0 ,  0
+ 1339 2ae0 00FFFF00 	actc: .long yellow, 0, 0x0ff0000, 0x0c000, 0, 0, 0x0ffff
+ 1339      00000000 
+ 1339      0000FF00 
+ 1339      00C00000 
+ 1339      00000000 
+ 1340 2afc 00000000 	     .long 0, 0x0ffffff, 0x0ffffff, 0x0ffffff, 0x8080ff
+ 1340      FFFFFF00 
+ 1340      FFFFFF00 
+ 1340      FFFFFF00 
+ 1340      FF808000 
+ 1341 2b10 00000000 	vector: .long 0
+ 1342 2b14 01       	action: .byte 1
+ 1343              	
+ 1344 2b15 B001     	act1: mov  al, 1
+ 1345 2b17 EB16     	    jmp  0f
+ 1346 2b19 B003     	act3: mov  al, 3
+ 1347 2b1b EB12     	    jmp  0f
+ 1348 2b1d B004     	act4: mov  al, 4
+ 1349 2b1f EB0E     	    jmp  0f
+ 1350 2b21 B009     	act9: mov  al, 9
+ 1351 2b23 EB0A     	    jmp  0f
+ 1352 2b25 B00A     	act10: mov  al, 10
+ 1353 2b27 EB06     	    jmp  0f
+ 1354 2b29 B00B     	act11: mov  al, 11
+ 1355 2b2b EB02     	    jmp  0f
+ 1356 2b2d B007     	act7: mov  al, 7
+ 1357 2b2f A2142B00 	0: mov  action, al
+ 1357      00
+ 1358 2b34 8B0485DC 	    mov  eax, [actc-4+eax*4]
+ 1358      2A0000
+ 1359 2b3b C7052424 	    mov dword ptr  aword, offset insert
+ 1359      0000022D 
+ 1359      0000
+ 1360 2b45 A31C2400 	actn: mov  keyc, eax
+ 1360      00
+ 1361 2b4a 58       	    pop  eax
+ 1362              	    drop
+ 1362 2b4b AD       	> lodsd
+ 1363 2b4c E9E2F8FF 	    jmp  accept
+ 1363      FF
+ 1364              	
+ 1365 2b51 C705142B 	actv: mov dword ptr  action, 12
+ 1365      00000C00 
+ 1365      0000
+ 1366 2b5b B8FF00FF 	    mov  eax, 0x0ff00ff ;# magenta
+ 1366      00
+ 1367 2b60 C7052424 	    mov dword ptr  aword, offset 0f
+ 1367      00006C2B 
+ 1367      0000
+ 1368 2b6a EBD9     	    jmp  actn
+ 1369              	
+ 1370              	0: dup_
+ 1370 2b6c 8D76FC   	> lea esi,[esi-4]
+ 1370 2b6f 8906     	> mov [esi],eax
+ 1371 2b71 31C0     	    xor  eax, eax
+ 1372 2b73 FF052C24 	    inc dword ptr  words
+ 1372      0000
+ 1373 2b79 E9840100 	    jmp  insert
+ 1373      00
+ 1374              	
+ 1375 2b7e FF0D402A 	mcur: dec dword ptr  curs
+ 1375      0000
+ 1376 2b84 7906     	    jns  0f
+ 1377 2b86 FF05402A 	pcur: inc dword ptr  curs
+ 1377      0000
+ 1378 2b8c C3       	0: ret
+ 1379              	
+ 1380 2b8d 832D402A 	mmcur: sub dword ptr  curs, 8
+ 1380      000008
+ 1381 2b94 790A     	    jns  0f
+ 1382 2b96 C705402A 	        mov dword ptr  curs, 0
+ 1382      00000000 
+ 1382      0000
+ 1383 2ba0 C3       	0: ret
+ 1384 2ba1 8305402A 	ppcur: add dword ptr  curs, 8
+ 1384      000008
+ 1385 2ba8 C3       	    ret
+ 1386              	
+ 1387 2ba9 83053C2A 	pblk: add dword ptr  blk, 2
+ 1387      000002
+ 1388 2bb0 830602   	    add  dword ptr [esi], 2
+ 1389 2bb3 C3       	    ret
+ 1390 2bb4 833D3C2A 	mblk: cmp dword ptr  blk, 20
+ 1390      000014
+ 1391 2bbb 780A     	    js   0f
+ 1392 2bbd 832D3C2A 	        sub dword ptr  blk, 2
+ 1392      000002
+ 1393 2bc4 832E02   	        sub  dword ptr [esi], 2
+ 1394 2bc7 C3       	0: ret
+ 1395              	
+ 1396 2bc8 83353C2A 	shadow: xor dword ptr  blk, 1
+ 1396      000001
+ 1397 2bcf 833601   	    xor  dword ptr [esi], 1
+ 1398 2bd2 C3       	    ret
+ 1399              	
+ 1400              	e0: drop
+ 1400 2bd3 AD       	> lodsd
+ 1401 2bd4 EB30     	    jmp  0f
+ 1402              	
+ 1403 2bd6 A33C2A00 	edit: mov  blk, eax
+ 1403      00
+ 1404              	    drop
+ 1404 2bdb AD       	> lodsd
+ 1405              	e:  dup_
+ 1405 2bdc 8D76FC   	> lea esi,[esi-4]
+ 1405 2bdf 8906     	> mov [esi],eax
+ 1406 2be1 A13C2A00 	    mov  eax, blk
+ 1406      00
+ 1407 2be6 C7052824 	    mov dword ptr  anumber, offset format
+ 1407      0000192D 
+ 1407      0000
+ 1408 2bf0 C605CC23 	    mov  byte ptr alpha0+4*4, 045 ;# .
+ 1408      000025
+ 1409 2bf7 C705C023 	    mov dword ptr  alpha0+4, offset e0
+ 1409      0000D32B 
+ 1409      0000
+ 1410 2c01 E860FDFF 	    call refresh
+ 1410      FF
+ 1411 2c06 C7051024 	0: mov dword ptr  shift, offset ekbd0
+ 1411      0000B42A 
+ 1411      0000
+ 1412 2c10 C7050C24 	    mov dword ptr  board, offset ekbd-4
+ 1412      0000C42A 
+ 1412      0000
+ 1413 2c1a C7051C24 	    mov dword ptr  keyc, yellow
+ 1413      000000FF 
+ 1413      FF00
+ 1414 2c24 E847F7FF 	0:     call key
+ 1414      FF
+ 1415 2c29 FF148554 	        call ekeys[eax*4]
+ 1415      2A0000
+ 1416              	        drop
+ 1416 2c30 AD       	> lodsd
+ 1417 2c31 EBF1     	        jmp  0b
+ 1418              	
+ 1419 2c33 58       	eout: pop  eax
+ 1420              	    drop
+ 1420 2c34 AD       	> lodsd
+ 1421              	    drop
+ 1421 2c35 AD       	> lodsd
+ 1422 2c36 C7052424 	    mov dword ptr  aword, offset ex1
+ 1422      0000B403 
+ 1422      0000
+ 1423 2c40 C7052824 	    mov dword ptr  anumber, offset nul
+ 1423      00003307 
+ 1423      0000
+ 1424 2c4a C605CC23 	    mov  byte ptr alpha0+4*4, 0
+ 1424      000000
+ 1425 2c51 C705C023 	    mov dword ptr  alpha0+4, offset nul0
+ 1425      00003024 
+ 1425      0000
+ 1426 2c5b C7051C24 	    mov dword ptr  keyc, yellow
+ 1426      000000FF 
+ 1426      FF00
+ 1427 2c65 E9C9F7FF 	    jmp  accept
+ 1427      FF
+ 1428              	
+ 1429 2c6a 8B15502A 	destack: mov  edx, trash
+ 1429      0000
+ 1430 2c70 81FA0070 	    cmp  edx, buffer*4
+ 1430      0900
+ 1431 2c76 7501     	    jnz  0f
+ 1432 2c78 C3       	        ret
+ 1433 2c79 83EA08   	0: sub  edx, 2*4
+ 1434 2c7c 8B4A04   	    mov  ecx, [edx+1*4]
+ 1435 2c7f 890D2C24 	    mov  words, ecx
+ 1435      0000
+ 1436              	0:     dup_
+ 1436 2c85 8D76FC   	> lea esi,[esi-4]
+ 1436 2c88 8906     	> mov [esi],eax
+ 1437 2c8a 8B02     	        mov  eax, [edx]
+ 1438 2c8c 83EA04   	        sub  edx, 1*4
+ 1439              	        next 0b
+ 1439 2c8f 49       	> dec ecx
+ 1439 2c90 75F3     	> jnz 0b
+ 1440 2c92 83C204   	    add  edx, 1*4
+ 1441 2c95 8915502A 	    mov  trash, edx
+ 1441      0000
+ 1442              	
+ 1443 2c9b 8B0D4C2A 	insert0: mov  ecx, lcad  ;# room available?
+ 1443      0000
+ 1444 2ca1 030D2C24 	     add  ecx, words
+ 1444      0000
+ 1445 2ca7 330D4C2A 	     xor  ecx, lcad
+ 1445      0000
+ 1446 2cad 81E100FF 	     and  ecx, -0x100
+ 1446      FFFF
+ 1447 2cb3 740B     	     jz   insert1
+ 1448 2cb5 8B0D2C24 	         mov  ecx, words ;# no
+ 1448      0000
+ 1449              	0:          drop
+ 1449 2cbb AD       	> lodsd
+ 1450              	             next 0b
+ 1450 2cbc 49       	> dec ecx
+ 1450 2cbd 75FC     	> jnz 0b
+ 1451 2cbf C3       	         ret
+ 1452 2cc0 56       	insert1: push esi
+ 1453 2cc1 8B354C2A 	     mov  esi, lcad
+ 1453      0000
+ 1454 2cc7 89F1     	     mov  ecx, esi
+ 1455 2cc9 4E       	     dec  esi
+ 1456 2cca 89F7     	     mov  edi, esi
+ 1457 2ccc 033D2C24 	     add  edi, words
+ 1457      0000
+ 1458 2cd2 C1E702   	     shl  edi, 2
+ 1459 2cd5 2B0D442A 	     sub  ecx, cad
+ 1459      0000
+ 1460 2cdb 7807     	     js   0f
+ 1461 2cdd C1E602   	         shl  esi, 2
+ 1462 2ce0 FD       	         std
+ 1463 2ce1 F3A5     	         rep movsd
+ 1464 2ce3 FC       	         cld
+ 1465 2ce4 5E       	0: pop  esi
+ 1466 2ce5 C1EF02   	    shr  edi, 2
+ 1467 2ce8 47       	    inc  edi
+ 1468 2ce9 893D402A 	    mov  curs, edi ;# like abort
+ 1468      0000
+ 1469 2cef 8B0D2C24 	    mov  ecx, words
+ 1469      0000
+ 1470 2cf5 4F       	0:     dec  edi
+ 1471 2cf6 8904BD00 	        mov  [edi*4], eax
+ 1471      000000
+ 1472              	        drop ;# requires cld
+ 1472 2cfd AD       	> lodsd
+ 1473              	        next 0b
+ 1473 2cfe 49       	> dec ecx
+ 1473 2cff 75F4     	> jnz 0b
+ 1474 2d01 C3       	    ret
+ 1475              	
+ 1476 2d02 E894FFFF 	insert: call insert0
+ 1476      FF
+ 1477 2d07 8A0D142B 	    mov  cl, action
+ 1477      0000
+ 1478 2d0d 300CBD00 	    xor  [edi*4], cl
+ 1478      000000
+ 1479 2d14 E91AF7FF 	    jmp  accept
+ 1479      FF
+ 1480              	
+ 1481 2d19 F705142B 	format: test dword ptr action, 012 ;# ignore 3 and 9
+ 1481      00000A00 
+ 1481      0000
+ 1482 2d23 7402     	    jz   0f
+ 1483              	        drop
+ 1483 2d25 AD       	> lodsd
+ 1484 2d26 C3       	        ret
+ 1485 2d27 89C2     	0: mov  edx, eax
+ 1486 2d29 81E20000 	    and  edx, 0x0fc000000
+ 1486      00FC
+ 1487 2d2f 7408     	    jz   0f
+ 1488 2d31 81FA0000 	        cmp  edx, 0x0fc000000
+ 1488      00FC
+ 1489 2d37 7527     	        jnz  format2
+ 1490 2d39 C1E005   	0: shl  eax, 5
+ 1491 2d3c 3402     	    xor  al, 2 ;# 6
+ 1492 2d3e 833D142B 	    cmp dword ptr  action, 4
+ 1492      000004
+ 1493 2d45 7402     	    jz   0f
+ 1494 2d47 340B     	        xor  al, 013 ;# 8
+ 1495 2d49 833D1424 	0: cmp dword ptr  base, 10
+ 1495      00000A
+ 1496 2d50 7402     	    jz   0f
+ 1497 2d52 3410     	        xor  al, 020
+ 1498 2d54 C7052C24 	0: mov dword ptr  words, 1
+ 1498      00000100 
+ 1498      0000
+ 1499 2d5e EBA2     	    jmp  insert
+ 1500              	
+ 1501              	format2: dup_
+ 1501 2d60 8D76FC   	> lea esi,[esi-4]
+ 1501 2d63 8906     	> mov [esi],eax
+ 1502 2d65 B8010000 	    mov  eax, 1 ;# 5
+ 1502      00
+ 1503 2d6a 833D142B 	    cmp dword ptr  action, 4
+ 1503      000004
+ 1504 2d71 7402     	    jz   0f
+ 1505 2d73 B003     	        mov  al, 3 ;# 2
+ 1506 2d75 833D1424 	0: cmp dword ptr  base, 10
+ 1506      00000A
+ 1507 2d7c 7402     	    jz   0f
+ 1508 2d7e 3410     	        xor  al, 020
+ 1509 2d80 8706     	0: xchg eax, [esi]
+ 1510 2d82 C7052C24 	    mov dword ptr  words, 2
+ 1510      00000200 
+ 1510      0000
+ 1511 2d8c E971FFFF 	    jmp  insert
+ 1511      FF
+ 1512              	
+ 1513 2d91 E8230000 	del: call enstack
+ 1513      00
+ 1514 2d96 8B3D482A 	    mov  edi, pcad
+ 1514      0000
+ 1515 2d9c 8B0D4C2A 	    mov  ecx, lcad
+ 1515      0000
+ 1516 2da2 29F9     	    sub  ecx, edi
+ 1517 2da4 C1E702   	    shl  edi, 2
+ 1518 2da7 56       	    push esi
+ 1519 2da8 8B35442A 	     mov  esi, cad
+ 1519      0000
+ 1520 2dae C1E602   	     shl  esi, 2
+ 1521 2db1 F3A5     	     rep movsd
+ 1522 2db3 5E       	    pop  esi
+ 1523 2db4 E9C5FDFF 	    jmp  mcur
+ 1523      FF
+ 1524              	
+ 1525              	enstack: dup_
+ 1525 2db9 8D76FC   	> lea esi,[esi-4]
+ 1525 2dbc 8906     	> mov [esi],eax
+ 1526 2dbe A1442A00 	    mov  eax, cad
+ 1526      00
+ 1527 2dc3 2B05482A 	    sub  eax, pcad
+ 1527      0000
+ 1528 2dc9 7427     	    jz   ens
+ 1529 2dcb 89C1     	      mov  ecx, eax
+ 1530 2dcd 92       	      xchg eax, edx
+ 1531 2dce 56       	      push esi
+ 1532 2dcf 8B35442A 	       mov  esi, cad
+ 1532      0000
+ 1533 2dd5 8D34B5FC 	       lea  esi, [esi*4-4]
+ 1533      FFFFFF
+ 1534 2ddc 8B3D502A 	       mov  edi, trash
+ 1534      0000
+ 1535 2de2 FD       	0:      std
+ 1536 2de3 AD       	         lodsd
+ 1537 2de4 FC       	         cld
+ 1538 2de5 AB       	         stosd
+ 1539              	         next 0b
+ 1539 2de6 49       	> dec ecx
+ 1539 2de7 75F9     	> jnz 0b
+ 1540 2de9 92       	       xchg eax, edx
+ 1541 2dea AB       	       stosd
+ 1542 2deb 893D502A 	       mov  trash, edi
+ 1542      0000
+ 1543 2df1 5E       	    pop  esi
+ 1544              	ens: drop
+ 1544 2df2 AD       	> lodsd
+ 1545 2df3 C3       	    ret
+ 1546              	
+ 1547 2df4 5A       	pad: pop  edx
+ 1548 2df5 8915102B 	    mov  vector, edx
+ 1548      0000
+ 1549 2dfb 81C28C00 	    add  edx, 28*5
+ 1549      0000
+ 1550 2e01 89150C24 	    mov  board, edx
+ 1550      0000
+ 1551 2e07 83EA10   	    sub  edx, 4*4
+ 1552 2e0a 89151024 	    mov  shift, edx
+ 1552      0000
+ 1553 2e10 E85BF5FF 	0:     call key
+ 1553      FF
+ 1554 2e15 8B15102B 	        mov  edx, vector
+ 1554      0000
+ 1555 2e1b 01C2     	        add  edx, eax
+ 1556 2e1d 8D548205 	        lea  edx, [5+eax*4+edx]
+ 1557 2e21 0352FC   	        add  edx, [-4+edx]
+ 1558              	        drop
+ 1558 2e24 AD       	> lodsd
+ 1559 2e25 FFD2     	        call edx
+ 1560 2e27 EBE7     	        jmp  0b
+ 1561              	
+ 1562 2e29 00000000 	.org (0x1200-1)*4
+ 1562      00000000 
+ 1562      00000000 
+ 1562      00000000 
+ 1562      00000000 
+ 1563 47fc 00000000 	    .long 0
+ 1564              	.end start
+DEFINED SYMBOLS
+                            *ABS*:00000000 fake
+            boot.asm:4      .text:00000000 start
+            boot.asm:49     .text:00000058 start0
+            boot.asm:22     .text:00000025 command
+            boot.asm:24     .text:00000027 cylinder
+            boot.asm:34     .text:00000030 nc
+            boot.asm:35     .text:00000034 gdt
+            boot.asm:38     .text:00000040 gdt0
+            boot.asm:63     .text:00000076 loc
+            boot.asm:73     .text:00000086 relocate
+            boot.asm:84     .text:00000097 protected
+                            *ABS*:000a0000 gods
+            boot.asm:93     .text:000000ac a20
+            boot.asm:187    .text:0000018f dma
+            boot.asm:111    .text:000000d9 cold
+                            *ABS*:0009f448 godd
+            boot.asm:121    .text:000000fc start2
+            boot.asm:165    .text:00000160 sense_
+            boot.asm:199    .text:000001ba read
+            boot.asm:179    .text:0000017f stop
+           color.asm:39     .text:00000288 start1
+            boot.asm:126    .text:00000106 spin
+            boot.asm:180    .text:00000181 onoff
+            boot.asm:151    .text:00000145 cmd
+            boot.asm:138    .text:0000012e cmdi
+            boot.asm:142    .text:00000136 ready
+            boot.asm:150    .text:00000143 transfer
+            boot.asm:153    .text:0000014d cmd0
+            boot.asm:155    .text:00000150 cmd1
+            boot.asm:175    .text:00000177 seek
+            boot.asm:213    .text:000001d5 write
+            boot.asm:229    .text:00000204 flop
+            boot.asm:238    .text:0000021d readf
+            boot.asm:244    .text:0000022f readf1
+            boot.asm:249    .text:00000238 writef
+            boot.asm:257    .text:0000024c seekf
+            boot.asm:267    .text:00000266 cmdf
+            boot.asm:274    .text:00000277 readyf
+           color.asm:38     .text:00000283 warm
+             gen.asm:16     .text:00001ea4 displ
+           color.asm:87     .text:0000030b show0
+           color.asm:396    .text:000007c4 forths
+           color.asm:477    .text:00000acc forth1
+           color.asm:408    .text:000009e0 forth0
+           color.asm:395    .text:000007c0 macros
+           color.asm:407    .text:000007e0 macro1
+           color.asm:400    .text:000007c8 macro0
+           color.asm:372    .text:00000741 load
+           color.asm:921    .text:00002433 accept
+           color.asm:54     .text:000002b8 me
+           color.asm:58     .text:000002c5 god
+           color.asm:55     .text:000002bc screen
+           color.asm:57     .text:000002c0 round
+           color.asm:70     .text:000002e6 unpause
+           color.asm:60     .text:000002ce main
+           color.asm:63     .text:000002d4 pause
+           color.asm:77     .text:000002f1 act
+           color.asm:89     .text:00000311 show
+             gen.asm:37     .text:00001ee1 graphic
+             gen.asm:39     .text:00001ee2 switch
+           color.asm:99     .text:00000336 c_
+           color.asm:102    .text:0000033c mark
+           color.asm:390    .text:000007a0 mk
+           color.asm:391    .text:000007ac h
+           color.asm:110    .text:00000361 empty
+           color.asm:393    .text:000007b4 class
+           color.asm:119    .text:00000390 mfind
+           color.asm:124    .text:000003a0 find
+           color.asm:133    .text:000003b4 ex1
+           color.asm:917    .text:0000242c words
+           color.asm:154    .text:00000405 abort1
+           color.asm:489    .text:000014e4 forth2
+           color.asm:142    .text:000003ce execute
+           color.asm:389    .text:0000079c lit
+           color.asm:242    .text:00000588 alit
+           color.asm:145    .text:000003e4 ex2
+           color.asm:151    .text:000003f6 abort
+           color.asm:1320   .text:00002a40 curs
+           color.asm:1319   .text:00002a3c blk
+           color.asm:383    .text:0000075c spaces
+           color.asm:172    .text:00000467 forthd
+           color.asm:253    .text:000005bd qcompile
+           color.asm:230    .text:00000561 cnum
+           color.asm:235    .text:00000571 cshort
+           color.asm:671    .text:000020e2 echo_
+           color.asm:163    .text:00000441 sdefine
+           color.asm:384    .text:00000768 adefine
+           color.asm:165    .text:00000448 macro_
+           color.asm:166    .text:0000044d macrod
+           color.asm:171    .text:00000462 forth
+           color.asm:392    .text:000007b0 last
+           color.asm:394    .text:000007b8 list
+           color.asm:210    .text:0000050d adup
+           color.asm:190    .text:000004c4 cdrop
+           color.asm:196    .text:000004da qdup
+           color.asm:204    .text:000004f5 cdup
+           color.asm:213    .text:00000513 var1
+           color.asm:216    .text:00000520 variable
+           color.asm:243    .text:00000592 literal
+           color.asm:481    .text:000012cc macro2
+           color.asm:263    .text:000005ee call_
+           color.asm:273    .text:0000060d compile
+           color.asm:280    .text:0000062b short_
+           color.asm:286    .text:00000645 num
+           color.asm:292    .text:0000065d comma
+           color.asm:302    .text:00000679 comma1
+           color.asm:305    .text:00000680 comma2
+           color.asm:308    .text:00000687 comma3
+           color.asm:311    .text:0000068e semi
+           color.asm:323    .text:000006b2 then
+           color.asm:330    .text:000006c5 begin
+           color.asm:331    .text:000006cb here
+           color.asm:335    .text:000006d6 qlit
+           color.asm:349    .text:00000712 q1
+           color.asm:354    .text:0000071d less
+           color.asm:359    .text:00000724 qignore
+           color.asm:363    .text:00000733 nul
+           color.asm:365    .text:00000734 jump
+           color.asm:376    .text:00000748 inter
+           color.asm:559    .text:00001dd0 boot
+           color.asm:628    .text:00001e68 nc_
+           color.asm:1547   .text:00002df4 pad
+           color.asm:563    .text:00001dd6 erase
+           color.asm:588    .text:00001de9 copy
+             gen.asm:99     .text:00001f77 emit
+           color.asm:1081   .text:000026a7 edig
+             gen.asm:120    .text:00001fb7 emit2
+           color.asm:1123   .text:00002718 dot10
+           color.asm:1099   .text:000026d3 hdot
+           color.asm:1092   .text:000026c1 hdotn
+           color.asm:722    .text:0000218b cr
+             gen.asm:117    .text:00001fac space
+           color.asm:689    .text:00002111 down
+           color.asm:1403   .text:00002bd6 edit
+           color.asm:1405   .text:00002bdc e
+           color.asm:729    .text:000021a5 lms
+           color.asm:733    .text:000021ac rms
+             gen.asm:140    .text:00001ff2 text1
+           color.asm:820    .text:0000223e keyboard
+           color.asm:602    .text:00001e10 debug
+           color.asm:737    .text:000021b3 at
+           color.asm:743    .text:000021c2 pat
+           color.asm:632    .text:00001e73 xy_
+           color.asm:636    .text:00001e7e fov_
+             gen.asm:36     .text:00001ee0 fifof
+             gen.asm:157    .text:0000202e box
+             gen.asm:145    .text:00002010 line
+             gen.asm:31     .text:00001ed4 color
+           color.asm:780    .text:000021d3 octant
+           color.asm:640    .text:00001e89 sps
+           color.asm:644    .text:00001e94 last_
+           color.asm:1151   .text:00002769 unpack
+           color.asm:622    .text:00001e54 xy
+                            *ABS*:00000019 vc
+                            *ABS*:0000001e ih
+           color.asm:1106   .text:000026e7 dot
+           color.asm:623    .text:00001e58 lm
+           color.asm:624    .text:00001e5c rm
+           color.asm:625    .text:00001e60 xycr
+           color.asm:626    .text:00001e64 fov
+             gen.asm:15     .text:00001ea0 frame
+             gen.asm:17     .text:00001ea8 fore
+             gen.asm:18     .text:00001eac xc
+             gen.asm:19     .text:00001eb0 yc
+             gen.asm:21     .text:00001eb4 rgb
+             gen.asm:29     .text:00001eca white
+             gen.asm:59     .text:00001efe clip
+             gen.asm:76     .text:00001f36 bit16
+             gen.asm:79     .text:00001f3f b16
+             gen.asm:86     .text:00001f4e bit32
+             gen.asm:89     .text:00001f57 b32
+           color.asm:719    .text:0000217b qcr
+             gen.asm:116    .text:00001fab bl_
+           color.asm:712    .text:00002162 top
+             gen.asm:180    .text:0000207a no
+           color.asm:651    .text:0000207d cyan
+           color.asm:654    .text:0000208c magenta
+           color.asm:657    .text:0000209b silver
+           color.asm:660    .text:000020aa blue
+           color.asm:663    .text:000020b9 red
+           color.asm:666    .text:000020c8 green
+           color.asm:670    .text:000020d7 history
+           color.asm:681    .text:000020fb right
+           color.asm:696    .text:0000212d zero
+           color.asm:702    .text:00002138 blank
+           color.asm:794    .text:000021f2 eight
+           color.asm:798    .text:00002202 four
+           color.asm:799    .text:00002207 four1
+           color.asm:809    .text:0000221d stack
+           color.asm:1121   .text:0000270f qdot
+           color.asm:909    .text:0000240c board
+           color.asm:913    .text:0000241c keyc
+           color.asm:910    .text:00002410 shift
+           color.asm:845    .text:000022d8 alpha
+           color.asm:851    .text:000022f0 graphics
+           color.asm:857    .text:00002308 numbers
+           color.asm:863    .text:00002320 octals
+           color.asm:869    .text:00002338 letter
+           color.asm:875    .text:00002346 keys
+           color.asm:881    .text:00002370 key
+           color.asm:896    .text:00002394 graph0
+           color.asm:919    .text:00002430 nul0
+           color.asm:1057   .text:00002626 alph0
+           color.asm:898    .text:000023a8 graph1
+           color.asm:994    .text:00002533 word0
+           color.asm:972    .text:000024c9 x
+           color.asm:960    .text:0000249f lj
+           color.asm:1065   .text:0000264e alph
+           color.asm:900    .text:000023bc alpha0
+           color.asm:1030   .text:000025c1 number
+           color.asm:1060   .text:00002638 star0
+           color.asm:902    .text:000023d0 alpha1
+           color.asm:1068   .text:00002660 graph
+           color.asm:904    .text:000023e4 numb0
+           color.asm:1024   .text:000025b7 minus
+           color.asm:1056   .text:00002625 alphn
+           color.asm:1008   .text:00002579 octal
+           color.asm:906    .text:000023f8 numb1
+           color.asm:1028   .text:000025be number0
+           color.asm:1013   .text:00002591 xn
+           color.asm:1052   .text:00002619 endn
+           color.asm:911    .text:00002414 base
+           color.asm:912    .text:00002418 current
+           color.asm:998    .text:0000253b decimal
+           color.asm:914    .text:00002420 chars
+           color.asm:915    .text:00002424 aword
+           color.asm:916    .text:00002428 anumber
+           color.asm:922    .text:00002433 acceptn
+           color.asm:924    .text:00002443 accept1
+           color.asm:1073   .text:0000267b first
+           color.asm:931    .text:0000245f bits
+           color.asm:935    .text:00002467 pack
+           color.asm:964    .text:000024a6 full
+           color.asm:955    .text:00002493 lj0
+           color.asm:978    .text:000024dc word_
+           color.asm:984    .text:0000250a word1
+           color.asm:1003   .text:0000255a hex
+           color.asm:1018   .text:00002598 digit
+           color.asm:1023   .text:000025b6 sign
+           color.asm:1048   .text:0000260c number2
+           color.asm:1033   .text:000025d2 number3
+           color.asm:1078   .text:00002692 hicon
+           color.asm:1080   .text:000026a2 edig1
+           color.asm:1087   .text:000026b5 odig
+           color.asm:1118   .text:0000270c @h
+           color.asm:1113   .text:000026fd @h1
+           color.asm:1316   .text:00002a14 tens
+           color.asm:1142   .text:00002753 d_1
+           color.asm:1145   .text:0000275b d_2
+           color.asm:1171   .text:00002798 qring
+           color.asm:1183   .text:000027be ring
+           color.asm:1322   .text:00002a48 pcad
+           color.asm:1321   .text:00002a44 cad
+           color.asm:1197   .text:00002807 rw
+           color.asm:1244   .text:000028c5 type_
+           color.asm:1204   .text:00002826 gw
+           color.asm:1206   .text:00002830 mw
+           color.asm:1208   .text:0000283a ww
+           color.asm:1213   .text:0000284b type0
+           color.asm:1245   .text:000028c5 type1
+           color.asm:1323   .text:00002a4c lcad
+           color.asm:1224   .text:0000287a cap
+           color.asm:1248   .text:000028d4 type2
+           color.asm:1233   .text:0000289c caps
+           color.asm:1243   .text:000028c0 text
+           color.asm:1257   .text:000028ea gsw
+           color.asm:1265   .text:00002908 gnw1
+           color.asm:1261   .text:000028f6 var
+           color.asm:1263   .text:00002900 gnw
+           color.asm:1318   .text:00002a38 bas
+           color.asm:1272   .text:00002925 sw
+           color.asm:1278   .text:00002939 nw1
+           color.asm:1276   .text:00002931 nw
+           color.asm:1288   .text:00002966 refresh
+           color.asm:1298   .text:00002995 ref1
+           color.asm:1312   .text:000029d4 display
+           color.asm:1324   .text:00002a50 trash
+           color.asm:1325   .text:00002a54 ekeys
+           color.asm:1513   .text:00002d91 del
+           color.asm:1419   .text:00002c33 eout
+           color.asm:1429   .text:00002c6a destack
+           color.asm:1344   .text:00002b15 act1
+           color.asm:1346   .text:00002b19 act3
+           color.asm:1348   .text:00002b1d act4
+           color.asm:1396   .text:00002bc8 shadow
+           color.asm:1375   .text:00002b7e mcur
+           color.asm:1380   .text:00002b8d mmcur
+           color.asm:1384   .text:00002ba1 ppcur
+           color.asm:1377   .text:00002b86 pcur
+           color.asm:1390   .text:00002bb4 mblk
+           color.asm:1365   .text:00002b51 actv
+           color.asm:1356   .text:00002b2d act7
+           color.asm:1387   .text:00002ba9 pblk
+           color.asm:1354   .text:00002b29 act11
+           color.asm:1352   .text:00002b25 act10
+           color.asm:1350   .text:00002b21 act9
+           color.asm:1331   .text:00002ab4 ekbd0
+           color.asm:1333   .text:00002ac8 ekbd
+           color.asm:1339   .text:00002ae0 actc
+           color.asm:1341   .text:00002b10 vector
+           color.asm:1342   .text:00002b14 action
+           color.asm:1476   .text:00002d02 insert
+           color.asm:1360   .text:00002b45 actn
+           color.asm:1400   .text:00002bd3 e0
+           color.asm:1481   .text:00002d19 format
+           color.asm:1443   .text:00002c9b insert0
+           color.asm:1452   .text:00002cc0 insert1
+           color.asm:1501   .text:00002d60 format2
+           color.asm:1525   .text:00002db9 enstack
+           color.asm:1544   .text:00002df2 ens
+
+NO UNDEFINED SYMBOLS

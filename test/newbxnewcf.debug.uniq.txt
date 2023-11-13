@@ -1,0 +1,583 @@
+      1 Next at t=0
+      1 (0) [0xfffffff0] f000:fff0 (unk. ctxt): jmp far f000:e05b         ; ea5be000f0
+      3 <bochs:1> lb 0x202e
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=8024194
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:4> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:5> c
+      1 (0).[8024194] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[8024195] [0x00100659] 0008:00100659 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8024196] [0x0010065c] 0008:0010065c (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8024197] [0x0010065e] 0008:0010065e (unk. ctxt): mov eax, 0x00000320       ; b820030000
+      1 (0).[8024198] [0x00100663] 0008:00100663 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8024199] [0x00100666] 0008:00100666 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8024200] [0x00100668] 0008:00100668 (unk. ctxt): mov eax, 0x000002c6       ; b8c6020000
+      1 (0).[8024201] [0x0010066d] 0008:0010066d (unk. ctxt): call .+0xfffffed8 (0x0010054a) ; e8d8feffff
+      1 (0).[8024202] [0x0010054a] 0008:0010054a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8024203] [0x0010054d] 0008:0010054d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8024204] [0x0010054f] 0008:0010054f (unk. ctxt): mov eax, 0x000000ff       ; b8ff000000
+      1 (0).[8024205] [0x00100554] 0008:00100554 (unk. ctxt): jmp .+0xfff0197b (0x00001ed4) ; e97b19f0ff
+      1 (0).[8024206] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[8024207] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[8024208] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[8024209] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[8024210] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[8024211] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[8024212] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[8024213] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[8024214] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[8024215] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[8024216] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[8024217] [0x00100672] 0008:00100672 (unk. ctxt): call .+0xfff019b7 (0x0000202e) ; e8b719f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=8024218
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:6> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:7> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=8987249
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:8> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:9> c
+      1 (0).[8987249] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[8987250] [0x00100677] 0008:00100677 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8987251] [0x0010067a] 0008:0010067a (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8987252] [0x0010067c] 0008:0010067c (unk. ctxt): mov eax, 0x00000258       ; b858020000
+      1 (0).[8987253] [0x00100681] 0008:00100681 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8987254] [0x00100684] 0008:00100684 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8987255] [0x00100686] 0008:00100686 (unk. ctxt): mov eax, 0x00000032       ; b832000000
+      1 (0).[8987256] [0x0010068b] 0008:0010068b (unk. ctxt): call .+0xfff01b23 (0x000021b3) ; e8231bf0ff
+      1 (0).[8987257] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[8987258] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[8987259] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[8987260] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[8987261] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[8987262] [0x00100690] 0008:00100690 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8987263] [0x00100693] 0008:00100693 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8987264] [0x00100695] 0008:00100695 (unk. ctxt): mov eax, 0x00000400       ; b800040000
+      1 (0).[8987265] [0x0010069a] 0008:0010069a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8987266] [0x0010069d] 0008:0010069d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8987267] [0x0010069f] 0008:0010069f (unk. ctxt): mov eax, 0x0000026c       ; b86c020000
+      1 (0).[8987268] [0x001006a4] 0008:001006a4 (unk. ctxt): call .+0xfffffe83 (0x0010052c) ; e883feffff
+      1 (0).[8987269] [0x0010052c] 0008:0010052c (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[8987270] [0x0010052f] 0008:0010052f (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[8987271] [0x00100531] 0008:00100531 (unk. ctxt): mov eax, 0x00ff0000       ; b80000ff00
+      1 (0).[8987272] [0x00100536] 0008:00100536 (unk. ctxt): jmp .+0xfff01999 (0x00001ed4) ; e99919f0ff
+      1 (0).[8987273] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[8987274] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[8987275] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[8987276] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[8987277] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[8987278] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[8987279] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[8987280] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[8987281] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[8987282] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[8987283] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[8987284] [0x001006a9] 0008:001006a9 (unk. ctxt): call .+0xfff01980 (0x0000202e) ; e88019f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=8987285
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:10> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:11> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=9210067
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:12> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:13> c
+      1 (0).[9210067] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[9210068] [0x001006ae] 0008:001006ae (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[9210069] [0x001006b1] 0008:001006b1 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[9210070] [0x001006b3] 0008:001006b3 (unk. ctxt): mov eax, 0x000000c8       ; b8c8000000
+      1 (0).[9210071] [0x001006b8] 0008:001006b8 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[9210072] [0x001006bb] 0008:001006bb (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[9210073] [0x001006bd] 0008:001006bd (unk. ctxt): mov eax, 0x00000064       ; b864000000
+      1 (0).[9210074] [0x001006c2] 0008:001006c2 (unk. ctxt): call .+0xfff01aec (0x000021b3) ; e8ec1af0ff
+      1 (0).[9210075] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[9210076] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[9210077] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[9210078] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[9210079] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[9210080] [0x001006c7] 0008:001006c7 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[9210081] [0x001006ca] 0008:001006ca (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[9210082] [0x001006cc] 0008:001006cc (unk. ctxt): mov eax, 0x000002bc       ; b8bc020000
+      1 (0).[9210083] [0x001006d1] 0008:001006d1 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[9210084] [0x001006d4] 0008:001006d4 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[9210085] [0x001006d6] 0008:001006d6 (unk. ctxt): mov eax, 0x000001f4       ; b8f4010000
+      1 (0).[9210086] [0x001006db] 0008:001006db (unk. ctxt): call .+0xfffffe5b (0x0010053b) ; e85bfeffff
+      1 (0).[9210087] [0x0010053b] 0008:0010053b (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[9210088] [0x0010053e] 0008:0010053e (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[9210089] [0x00100540] 0008:00100540 (unk. ctxt): mov eax, 0x0000ff00       ; b800ff0000
+      1 (0).[9210090] [0x00100545] 0008:00100545 (unk. ctxt): jmp .+0xfff0198a (0x00001ed4) ; e98a19f0ff
+      1 (0).[9210091] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[9210092] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[9210093] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[9210094] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[9210095] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[9210096] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[9210097] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[9210098] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[9210099] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[9210100] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[9210101] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[9210102] [0x001006e0] 0008:001006e0 (unk. ctxt): call .+0xfff01949 (0x0000202e) ; e84919f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=9210103
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:14> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:15> c
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=10206348
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:16> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=11169380
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:17> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:18> c
+      1 (0).[11169380] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[11169381] [0x00100659] 0008:00100659 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[11169382] [0x0010065c] 0008:0010065c (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[11169383] [0x0010065e] 0008:0010065e (unk. ctxt): mov eax, 0x00000320       ; b820030000
+      1 (0).[11169384] [0x00100663] 0008:00100663 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[11169385] [0x00100666] 0008:00100666 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[11169386] [0x00100668] 0008:00100668 (unk. ctxt): mov eax, 0x000002c6       ; b8c6020000
+      1 (0).[11169387] [0x0010066d] 0008:0010066d (unk. ctxt): call .+0xfffffed8 (0x0010054a) ; e8d8feffff
+      1 (0).[11169388] [0x0010054a] 0008:0010054a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[11169389] [0x0010054d] 0008:0010054d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[11169390] [0x0010054f] 0008:0010054f (unk. ctxt): mov eax, 0x000000ff       ; b8ff000000
+      1 (0).[11169391] [0x00100554] 0008:00100554 (unk. ctxt): jmp .+0xfff0197b (0x00001ed4) ; e97b19f0ff
+      1 (0).[11169392] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[11169393] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[11169394] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[11169395] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[11169396] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[11169397] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[11169398] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[11169399] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[11169400] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[11169401] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[11169402] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[11169403] [0x00100672] 0008:00100672 (unk. ctxt): call .+0xfff019b7 (0x0000202e) ; e8b719f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=11169404
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:19> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:20> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=12132435
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:21> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:22> c
+      1 (0).[12132435] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[12132436] [0x00100677] 0008:00100677 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12132437] [0x0010067a] 0008:0010067a (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12132438] [0x0010067c] 0008:0010067c (unk. ctxt): mov eax, 0x00000258       ; b858020000
+      1 (0).[12132439] [0x00100681] 0008:00100681 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12132440] [0x00100684] 0008:00100684 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12132441] [0x00100686] 0008:00100686 (unk. ctxt): mov eax, 0x00000032       ; b832000000
+      1 (0).[12132442] [0x0010068b] 0008:0010068b (unk. ctxt): call .+0xfff01b23 (0x000021b3) ; e8231bf0ff
+      1 (0).[12132443] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[12132444] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[12132445] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[12132446] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[12132447] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[12132448] [0x00100690] 0008:00100690 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12132449] [0x00100693] 0008:00100693 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12132450] [0x00100695] 0008:00100695 (unk. ctxt): mov eax, 0x00000400       ; b800040000
+      1 (0).[12132451] [0x0010069a] 0008:0010069a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12132452] [0x0010069d] 0008:0010069d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12132453] [0x0010069f] 0008:0010069f (unk. ctxt): mov eax, 0x0000026c       ; b86c020000
+      1 (0).[12132454] [0x001006a4] 0008:001006a4 (unk. ctxt): call .+0xfffffe83 (0x0010052c) ; e883feffff
+      1 (0).[12132455] [0x0010052c] 0008:0010052c (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12132456] [0x0010052f] 0008:0010052f (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12132457] [0x00100531] 0008:00100531 (unk. ctxt): mov eax, 0x00ff0000       ; b80000ff00
+      1 (0).[12132458] [0x00100536] 0008:00100536 (unk. ctxt): jmp .+0xfff01999 (0x00001ed4) ; e99919f0ff
+      1 (0).[12132459] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[12132460] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[12132461] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[12132462] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[12132463] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[12132464] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[12132465] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[12132466] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[12132467] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[12132468] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[12132469] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[12132470] [0x001006a9] 0008:001006a9 (unk. ctxt): call .+0xfff01980 (0x0000202e) ; e88019f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=12132471
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:23> trace of
+      1 :23: syntax error at 'of'
+      1 <bochs:24> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:25> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=12355253
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:26> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:27> c
+      1 (0).[12355253] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[12355254] [0x001006ae] 0008:001006ae (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12355255] [0x001006b1] 0008:001006b1 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12355256] [0x001006b3] 0008:001006b3 (unk. ctxt): mov eax, 0x000000c8       ; b8c8000000
+      1 (0).[12355257] [0x001006b8] 0008:001006b8 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12355258] [0x001006bb] 0008:001006bb (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12355259] [0x001006bd] 0008:001006bd (unk. ctxt): mov eax, 0x00000064       ; b864000000
+      1 (0).[12355260] [0x001006c2] 0008:001006c2 (unk. ctxt): call .+0xfff01aec (0x000021b3) ; e8ec1af0ff
+      1 (0).[12355261] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[12355262] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[12355263] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[12355264] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[12355265] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[12355266] [0x001006c7] 0008:001006c7 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12355267] [0x001006ca] 0008:001006ca (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12355268] [0x001006cc] 0008:001006cc (unk. ctxt): mov eax, 0x000002bc       ; b8bc020000
+      1 (0).[12355269] [0x001006d1] 0008:001006d1 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12355270] [0x001006d4] 0008:001006d4 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12355271] [0x001006d6] 0008:001006d6 (unk. ctxt): mov eax, 0x000001f4       ; b8f4010000
+      1 (0).[12355272] [0x001006db] 0008:001006db (unk. ctxt): call .+0xfffffe5b (0x0010053b) ; e85bfeffff
+      1 (0).[12355273] [0x0010053b] 0008:0010053b (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[12355274] [0x0010053e] 0008:0010053e (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[12355275] [0x00100540] 0008:00100540 (unk. ctxt): mov eax, 0x0000ff00       ; b800ff0000
+      1 (0).[12355276] [0x00100545] 0008:00100545 (unk. ctxt): jmp .+0xfff0198a (0x00001ed4) ; e98a19f0ff
+      1 (0).[12355277] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[12355278] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[12355279] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[12355280] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[12355281] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[12355282] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[12355283] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[12355284] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[12355285] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[12355286] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[12355287] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[12355288] [0x001006e0] 0008:001006e0 (unk. ctxt): call .+0xfff01949 (0x0000202e) ; e84919f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=12355289
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:28> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:29> c
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=13351534
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:30> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=14314566
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:31> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:32> c
+      1 (0).[14314566] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[14314567] [0x00100659] 0008:00100659 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[14314568] [0x0010065c] 0008:0010065c (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[14314569] [0x0010065e] 0008:0010065e (unk. ctxt): mov eax, 0x00000320       ; b820030000
+      1 (0).[14314570] [0x00100663] 0008:00100663 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[14314571] [0x00100666] 0008:00100666 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[14314572] [0x00100668] 0008:00100668 (unk. ctxt): mov eax, 0x000002c6       ; b8c6020000
+      1 (0).[14314573] [0x0010066d] 0008:0010066d (unk. ctxt): call .+0xfffffed8 (0x0010054a) ; e8d8feffff
+      1 (0).[14314574] [0x0010054a] 0008:0010054a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[14314575] [0x0010054d] 0008:0010054d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[14314576] [0x0010054f] 0008:0010054f (unk. ctxt): mov eax, 0x000000ff       ; b8ff000000
+      1 (0).[14314577] [0x00100554] 0008:00100554 (unk. ctxt): jmp .+0xfff0197b (0x00001ed4) ; e97b19f0ff
+      1 (0).[14314578] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[14314579] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[14314580] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[14314581] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[14314582] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[14314583] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[14314584] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[14314585] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[14314586] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[14314587] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[14314588] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[14314589] [0x00100672] 0008:00100672 (unk. ctxt): call .+0xfff019b7 (0x0000202e) ; e8b719f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=14314590
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:33> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:34> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=15277621
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:35> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:36> c
+      1 (0).[15277621] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[15277622] [0x00100677] 0008:00100677 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15277623] [0x0010067a] 0008:0010067a (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15277624] [0x0010067c] 0008:0010067c (unk. ctxt): mov eax, 0x00000258       ; b858020000
+      1 (0).[15277625] [0x00100681] 0008:00100681 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15277626] [0x00100684] 0008:00100684 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15277627] [0x00100686] 0008:00100686 (unk. ctxt): mov eax, 0x00000032       ; b832000000
+      1 (0).[15277628] [0x0010068b] 0008:0010068b (unk. ctxt): call .+0xfff01b23 (0x000021b3) ; e8231bf0ff
+      1 (0).[15277629] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[15277630] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[15277631] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[15277632] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[15277633] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[15277634] [0x00100690] 0008:00100690 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15277635] [0x00100693] 0008:00100693 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15277636] [0x00100695] 0008:00100695 (unk. ctxt): mov eax, 0x00000400       ; b800040000
+      1 (0).[15277637] [0x0010069a] 0008:0010069a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15277638] [0x0010069d] 0008:0010069d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15277639] [0x0010069f] 0008:0010069f (unk. ctxt): mov eax, 0x0000026c       ; b86c020000
+      1 (0).[15277640] [0x001006a4] 0008:001006a4 (unk. ctxt): call .+0xfffffe83 (0x0010052c) ; e883feffff
+      1 (0).[15277641] [0x0010052c] 0008:0010052c (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15277642] [0x0010052f] 0008:0010052f (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15277643] [0x00100531] 0008:00100531 (unk. ctxt): mov eax, 0x00ff0000       ; b80000ff00
+      1 (0).[15277644] [0x00100536] 0008:00100536 (unk. ctxt): jmp .+0xfff01999 (0x00001ed4) ; e99919f0ff
+      1 (0).[15277645] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[15277646] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[15277647] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[15277648] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[15277649] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[15277650] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[15277651] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[15277652] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[15277653] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[15277654] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[15277655] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[15277656] [0x001006a9] 0008:001006a9 (unk. ctxt): call .+0xfff01980 (0x0000202e) ; e88019f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=15277657
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:37> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:38> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=15500439
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:39> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:40> c
+      1 (0).[15500439] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[15500440] [0x001006ae] 0008:001006ae (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15500441] [0x001006b1] 0008:001006b1 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15500442] [0x001006b3] 0008:001006b3 (unk. ctxt): mov eax, 0x000000c8       ; b8c8000000
+      1 (0).[15500443] [0x001006b8] 0008:001006b8 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15500444] [0x001006bb] 0008:001006bb (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15500445] [0x001006bd] 0008:001006bd (unk. ctxt): mov eax, 0x00000064       ; b864000000
+      1 (0).[15500446] [0x001006c2] 0008:001006c2 (unk. ctxt): call .+0xfff01aec (0x000021b3) ; e8ec1af0ff
+      1 (0).[15500447] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[15500448] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[15500449] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[15500450] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[15500451] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[15500452] [0x001006c7] 0008:001006c7 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15500453] [0x001006ca] 0008:001006ca (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15500454] [0x001006cc] 0008:001006cc (unk. ctxt): mov eax, 0x000002bc       ; b8bc020000
+      1 (0).[15500455] [0x001006d1] 0008:001006d1 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15500456] [0x001006d4] 0008:001006d4 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15500457] [0x001006d6] 0008:001006d6 (unk. ctxt): mov eax, 0x000001f4       ; b8f4010000
+      1 (0).[15500458] [0x001006db] 0008:001006db (unk. ctxt): call .+0xfffffe5b (0x0010053b) ; e85bfeffff
+      1 (0).[15500459] [0x0010053b] 0008:0010053b (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[15500460] [0x0010053e] 0008:0010053e (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[15500461] [0x00100540] 0008:00100540 (unk. ctxt): mov eax, 0x0000ff00       ; b800ff0000
+      1 (0).[15500462] [0x00100545] 0008:00100545 (unk. ctxt): jmp .+0xfff0198a (0x00001ed4) ; e98a19f0ff
+      1 (0).[15500463] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[15500464] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[15500465] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[15500466] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[15500467] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[15500468] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[15500469] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[15500470] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[15500471] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[15500472] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[15500473] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[15500474] [0x001006e0] 0008:001006e0 (unk. ctxt): call .+0xfff01949 (0x0000202e) ; e84919f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=15500475
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:41> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:42> c
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=16496720
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:43> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=17459752
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:44> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:45> c
+      1 (0).[17459752] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[17459753] [0x00100659] 0008:00100659 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[17459754] [0x0010065c] 0008:0010065c (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[17459755] [0x0010065e] 0008:0010065e (unk. ctxt): mov eax, 0x00000320       ; b820030000
+      1 (0).[17459756] [0x00100663] 0008:00100663 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[17459757] [0x00100666] 0008:00100666 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[17459758] [0x00100668] 0008:00100668 (unk. ctxt): mov eax, 0x000002c6       ; b8c6020000
+      1 (0).[17459759] [0x0010066d] 0008:0010066d (unk. ctxt): call .+0xfffffed8 (0x0010054a) ; e8d8feffff
+      1 (0).[17459760] [0x0010054a] 0008:0010054a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[17459761] [0x0010054d] 0008:0010054d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[17459762] [0x0010054f] 0008:0010054f (unk. ctxt): mov eax, 0x000000ff       ; b8ff000000
+      1 (0).[17459763] [0x00100554] 0008:00100554 (unk. ctxt): jmp .+0xfff0197b (0x00001ed4) ; e97b19f0ff
+      1 (0).[17459764] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[17459765] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[17459766] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[17459767] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[17459768] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[17459769] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[17459770] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[17459771] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[17459772] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[17459773] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[17459774] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[17459775] [0x00100672] 0008:00100672 (unk. ctxt): call .+0xfff019b7 (0x0000202e) ; e8b719f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=17459776
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:46> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:47> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=18422807
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:48> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:49> c
+      1 (0).[18422807] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[18422808] [0x00100677] 0008:00100677 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18422809] [0x0010067a] 0008:0010067a (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18422810] [0x0010067c] 0008:0010067c (unk. ctxt): mov eax, 0x00000258       ; b858020000
+      1 (0).[18422811] [0x00100681] 0008:00100681 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18422812] [0x00100684] 0008:00100684 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18422813] [0x00100686] 0008:00100686 (unk. ctxt): mov eax, 0x00000032       ; b832000000
+      1 (0).[18422814] [0x0010068b] 0008:0010068b (unk. ctxt): call .+0xfff01b23 (0x000021b3) ; e8231bf0ff
+      1 (0).[18422815] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[18422816] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[18422817] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[18422818] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[18422819] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[18422820] [0x00100690] 0008:00100690 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18422821] [0x00100693] 0008:00100693 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18422822] [0x00100695] 0008:00100695 (unk. ctxt): mov eax, 0x00000400       ; b800040000
+      1 (0).[18422823] [0x0010069a] 0008:0010069a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18422824] [0x0010069d] 0008:0010069d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18422825] [0x0010069f] 0008:0010069f (unk. ctxt): mov eax, 0x0000026c       ; b86c020000
+      1 (0).[18422826] [0x001006a4] 0008:001006a4 (unk. ctxt): call .+0xfffffe83 (0x0010052c) ; e883feffff
+      1 (0).[18422827] [0x0010052c] 0008:0010052c (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18422828] [0x0010052f] 0008:0010052f (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18422829] [0x00100531] 0008:00100531 (unk. ctxt): mov eax, 0x00ff0000       ; b80000ff00
+      1 (0).[18422830] [0x00100536] 0008:00100536 (unk. ctxt): jmp .+0xfff01999 (0x00001ed4) ; e99919f0ff
+      1 (0).[18422831] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[18422832] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[18422833] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[18422834] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[18422835] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[18422836] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[18422837] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[18422838] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[18422839] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[18422840] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[18422841] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[18422842] [0x001006a9] 0008:001006a9 (unk. ctxt): call .+0xfff01980 (0x0000202e) ; e88019f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=18422843
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:50> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:51> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=18645625
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:52> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:53> c
+      1 (0).[18645625] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[18645626] [0x001006ae] 0008:001006ae (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18645627] [0x001006b1] 0008:001006b1 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18645628] [0x001006b3] 0008:001006b3 (unk. ctxt): mov eax, 0x000000c8       ; b8c8000000
+      1 (0).[18645629] [0x001006b8] 0008:001006b8 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18645630] [0x001006bb] 0008:001006bb (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18645631] [0x001006bd] 0008:001006bd (unk. ctxt): mov eax, 0x00000064       ; b864000000
+      1 (0).[18645632] [0x001006c2] 0008:001006c2 (unk. ctxt): call .+0xfff01aec (0x000021b3) ; e8ec1af0ff
+      1 (0).[18645633] [0x000021b3] 0008:000021b3 (unk. ctxt): mov word ptr ds:0x1e54, ax ; 66a3541e0000
+      1 (0).[18645634] [0x000021b9] 0008:000021b9 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[18645635] [0x000021ba] 0008:000021ba (unk. ctxt): mov word ptr ds:0x1e56, ax ; 66a3561e0000
+      1 (0).[18645636] [0x000021c0] 0008:000021c0 (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[18645637] [0x000021c1] 0008:000021c1 (unk. ctxt): ret                       ; c3
+      1 (0).[18645638] [0x001006c7] 0008:001006c7 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18645639] [0x001006ca] 0008:001006ca (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18645640] [0x001006cc] 0008:001006cc (unk. ctxt): mov eax, 0x000002bc       ; b8bc020000
+      1 (0).[18645641] [0x001006d1] 0008:001006d1 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18645642] [0x001006d4] 0008:001006d4 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18645643] [0x001006d6] 0008:001006d6 (unk. ctxt): mov eax, 0x000001f4       ; b8f4010000
+      1 (0).[18645644] [0x001006db] 0008:001006db (unk. ctxt): call .+0xfffffe5b (0x0010053b) ; e85bfeffff
+      1 (0).[18645645] [0x0010053b] 0008:0010053b (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[18645646] [0x0010053e] 0008:0010053e (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[18645647] [0x00100540] 0008:00100540 (unk. ctxt): mov eax, 0x0000ff00       ; b800ff0000
+      1 (0).[18645648] [0x00100545] 0008:00100545 (unk. ctxt): jmp .+0xfff0198a (0x00001ed4) ; e98a19f0ff
+      1 (0).[18645649] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[18645650] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[18645651] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[18645652] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[18645653] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[18645654] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[18645655] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[18645656] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[18645657] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[18645658] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[18645659] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[18645660] [0x001006e0] 0008:001006e0 (unk. ctxt): call .+0xfff01949 (0x0000202e) ; e84919f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=18645661
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:54> trace off
+      1 Tracing disabled for CPU 0
+      1 <bochs:55> c
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=19641906
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:56> c
+      1 (0) Breakpoint 2, 0x0000207c in ?? ()
+      1 Next at t=20604938
+      1 (0) [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 <bochs:57> trace on
+      1 Tracing enabled for CPU 0
+      1 <bochs:58> c
+      1 (0).[20604938] [0x0000207c] 0008:0000207c (unk. ctxt): ret                       ; c3
+      1 (0).[20604939] [0x00100659] 0008:00100659 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[20604940] [0x0010065c] 0008:0010065c (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[20604941] [0x0010065e] 0008:0010065e (unk. ctxt): mov eax, 0x00000320       ; b820030000
+      1 (0).[20604942] [0x00100663] 0008:00100663 (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[20604943] [0x00100666] 0008:00100666 (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[20604944] [0x00100668] 0008:00100668 (unk. ctxt): mov eax, 0x000002c6       ; b8c6020000
+      1 (0).[20604945] [0x0010066d] 0008:0010066d (unk. ctxt): call .+0xfffffed8 (0x0010054a) ; e8d8feffff
+      1 (0).[20604946] [0x0010054a] 0008:0010054a (unk. ctxt): lea esi, dword ptr ds:[esi+0xfffffffc] ; 8d76fc
+      1 (0).[20604947] [0x0010054d] 0008:0010054d (unk. ctxt): mov dword ptr ds:[esi], eax ; 8906
+      1 (0).[20604948] [0x0010054f] 0008:0010054f (unk. ctxt): mov eax, 0x000000ff       ; b8ff000000
+      1 (0).[20604949] [0x00100554] 0008:00100554 (unk. ctxt): jmp .+0xfff0197b (0x00001ed4) ; e97b19f0ff
+      1 (0).[20604950] [0x00001ed4] 0008:00001ed4 (unk. ctxt): call .+0xffffffdb (0x00001eb4) ; e8dbffffff
+      1 (0).[20604951] [0x00001eb4] 0008:00001eb4 (unk. ctxt): ror eax, 0x08             ; c1c808
+      1 (0).[20604952] [0x00001eb7] 0008:00001eb7 (unk. ctxt): shr ax, 0x02              ; 66c1e802
+      1 (0).[20604953] [0x00001ebb] 0008:00001ebb (unk. ctxt): ror eax, 0x06             ; c1c806
+      1 (0).[20604954] [0x00001ebe] 0008:00001ebe (unk. ctxt): shr al, 0x03              ; c0e803
+      1 (0).[20604955] [0x00001ec1] 0008:00001ec1 (unk. ctxt): rol eax, 0x0b             ; c1c00b
+      1 (0).[20604956] [0x00001ec4] 0008:00001ec4 (unk. ctxt): and eax, 0x0000f7de       ; 25def70000
+      1 (0).[20604957] [0x00001ec9] 0008:00001ec9 (unk. ctxt): ret                       ; c3
+      1 (0).[20604958] [0x00001ed9] 0008:00001ed9 (unk. ctxt): mov dword ptr ds:0x1ea8, eax ; a3a81e0000
+      1 (0).[20604959] [0x00001ede] 0008:00001ede (unk. ctxt): lodsd eax, dword ptr ds:[esi] ; ad
+      1 (0).[20604960] [0x00001edf] 0008:00001edf (unk. ctxt): ret                       ; c3
+      1 (0).[20604961] [0x00100672] 0008:00100672 (unk. ctxt): call .+0xfff019b7 (0x0000202e) ; e8b719f0ff
+      1 (0) Breakpoint 1, 0x0000202e in ?? ()
+      1 Next at t=20604962
+      1 (0) [0x0000202e] 0008:0000202e (unk. ctxt): call .+0xfffffecb (0x00001efe) ; e8cbfeffff
+      1 <bochs:59> quit

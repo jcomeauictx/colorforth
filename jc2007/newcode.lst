@@ -1,0 +1,215 @@
+   1              	.equ blockstart, .; .equ blocknumber, -1
+   2              	
+   3              	;# pad to block boundary
+   4              	.macro BLOCK number
+   5              	 .ifb \number
+   6              	  .print "compiling next block"
+   7              	  .equ blocknumber, blocknumber + 1
+   8              	 .else
+   9              	  .print "compiling block \number"
+  10              	  .equ blocknumber, \number
+  11              	 .endif
+  12              	 .ifdef ABSOLUTE_BLOCKNUMBER
+  13              	  .org blocknumber * 1024
+  14              	 .else
+  15              	  .org blockstart
+  16              	  .equ blockstart, blockstart + 1024
+  17              	 .endif
+  18              	 SET_DEFAULT_TYPETAG
+  19              	.endm
+  20              	
+  21              	.macro SET_DEFAULT_TYPETAG
+  22              	 .if blocknumber % 2  ;# even screens are code, odd are documentation
+  23              	  .equ default_typetag, 9  ;# type 9 is plain text
+  24              	 .else
+  25              	  .equ default_typetag, 4  ;# type 4 is compile
+  26              	 .endif
+  27              	.endm
+  28              	
+  29              	.macro SETTYPE word
+  30              	 .equ type, 0
+  31              	 .irp function [EXTENSION], [EXECUTE], [EXECUTELONG], [DEFINE], [COMPILEWORD]
+  32              	  NEXTTYPE "\word", "\function"
+  33              	 .endr
+  34              	 .irp function [COMPILELONG], [COMPILESHORT], [COMPILEMACRO], [EXECUTESHORT]
+  35              	  NEXTTYPE "\word", "\function"
+  36              	 .endr
+  37              	 .irp function [TEXT], [TEXTCAPITALIZED], [TEXTALLCAPS], [VARIABLE]
+  38              	  NEXTTYPE "\word", "\function"
+  39              	 .endr
+  40              	 .irp function [], [], [], [], [], [EXECUTELONGHEX], [], [], [COMPILELONGHEX]
+  41              	  NEXTTYPE "\word", "\function"
+  42              	 .endr
+  43              	 .irp function [COMPILESHORTHEX], [], [EXECUTESHORTHEX], [SKIP], [BINARY]
+  44              	  NEXTTYPE "\word", "\function"
+  45              	 .endr
+  46              	.endm
+  47              	
+  48              	.macro NEXTTYPE word, function
+  49              	 .ifdef DEBUG_FORTH
+  50              	  ;#.print "comparing \"\word\" with \"\function\""
+  51              	 .endif
+  52              	 .ifeqs "\word", "\function"
+  53              	  .equ default_typetag, type
+  54              	 .else
+  55              	  .equ type, type + 1
+  56              	 .endif
+  57              	.endm
+  58              	
+  59              	;# compile Forth words with Huffman coding
+  60              	.macro FORTH words:vararg
+  61              	 .equ wordcount, 0
+  62              	 .irp word, \words
+  63              	 .ifeq wordcount
+  64              	  .equ typetag, 3  ;# first word is almost always definition
+  65              	 .else
+  66              	  .equ typetag, default_typetag
+  67              	 .endif
+  68              	 SETTYPE "\word"
+  69              	 COMPILETYPE "\word"
+  70              	 .equ wordcount, wordcount + 1
+  71              	 .endr
+  72              	.endm
+  73              	
+  74              	.macro COMPILETYPE word
+  75              	 .ifeq type - 27  ;# means the SETTYPE macro didn't find a match
+  76              	  SET_DEFAULT_TYPETAG
+  77              	  .if typetag == 2 || typetag == 5
+  78              	   .long typetag, \word
+  79              	  .elseif typetag == (2 + 16) || typetag == (5 + 16)
+  80              	   .long typetag, 0x\word
+  81              	  .elseif typetag == 6 || typetag == 8
+  82              	   .long typetag | (\word << 5)
+  83              	  .elseif typetag == (6 + 16) || typetag == (8 + 16)
+  84              	   .long typetag | (0x\word << 5)
+  85              	  .elseif typetag == 25  ;# SKIP
+  86              	   .fill \word, 4, 0
+  87              	  .elseif typetag == 26  ;# BINARY
+  88              	   .long 0x\word
+  89              	  .else
+  90              	   FORTHWORD "\word"
+  91              	  .endif
+  92              	 .endif
+  93              	.endm
+  94              	
+  95              	.macro FORTHWORD word
+  96              	 .equ packed, 0; .equ bits, 28
+  97              	 ;# only 28 bits are used for a word, the low 4 bits are for the type tag
+  98              	 .irpc letter, "\word"
+  99              	  GETCODE "\letter"
+ 100              	  .equ maskbits, (1 << bits) - 1
+ 101              	  .equ testcode, (huffcode >> (shift - bits) & maskbits) << (shift - bits)
+ 102              	  .if bits - shift >= 0
+ 103              	   .equ packed, (packed << shift) | huffcode
+ 104              	   .equ bits, bits - shift
+ 105              	  ;# otherwise will the prefix plus all set bits fit in remaining space?
+ 106              	  .elseif testcode == huffcode
+ 107              	   .equ packed, (packed << bits) | (huffcode >> (shift - bits))
+ 108              	   .equ bits, 0
+ 109              	  .else
+ 110              	   .long (packed << (bits + 4)) | typetag
+ 111              	   .equ packed, huffcode; .equ bits, 28 - shift; .equ typetag, 0
+ 112              	  .endif
+ 113              	 .endr
+ 114              	 .ifne packed
+ 115              	  .long (packed << (bits + 4)) | typetag
+ 116              	 .endif
+ 117              	.endm
+ 118              	
+ 119              	.macro GETCODE letter
+ 120              	;# see more documentation on this under 'pack' in color.asm source
+ 121              	 .nolist  ;# don't pollute listing with all these byte comparisons
+ 122              	 .equ huffindex, 0; .equ huffcode, 0
+ 123              	 .irpc huffman, " rtoeanismcylgfwdvpbhxuq0123456789j-k.z/;:!+@*,?"
+ 124              	  .ifeqs "\letter", "\huffman"
+ 125              	   .equ shift, 4 + (huffindex / 8)
+ 126              	   .ifge shift - 6
+ 127              	    .equ shift, 7
+ 128              	   .endif
+ 129              	   .exitm
+ 130              	  .else
+ 131              	   NEXTCODE
+ 132              	  .endif
+ 133              	 .endr
+ 134              	 .list  ;# go ahead and generate listing if enabled
+ 135              	.endm
+ 136              	
+ 137              	.macro NEXTCODE
+ 138              	 .equ huffindex, huffindex + 1
+ 139              	 .equ huffcode, huffcode + 1
+ 140              	 .ifeq huffcode - 0b00001000 ;# going from 4-bit to 5-bit code
+ 141              	  .equ huffcode, 0b00010000
+ 142              	 .endif
+ 143              	 .ifeq huffcode - 0b00011000 ;# going from 5-bit to 7-bit code
+ 144              	  .equ huffcode, 0b01100000
+ 145              	 .endif
+ 146              	.endm
+ 147              	
+ 148              	/* test cases for common problems
+ 149              	BLOCK 19
+ 150              	FORTH "jul31", "colored", "keypad", "number"
+ 151              	BLOCK
+ 152              	*/
+ 153              	BLOCK
+ 153              	>  .ifb 
+ 153              	>  .print "compiling next block"
+ 153              	>  .equ blocknumber,blocknumber+1
+ 153              	>  .else
+ 153              	>  .print "compiling block "
+ 153              	>  .equ blocknumber,
+ 153              	>  .endif
+ 153              	>  .ifdef ABSOLUTE_BLOCKNUMBER
+ 153              	>  .org blocknumber * 1024
+ 153              	>  .else
+ 153              	>  .org blockstart
+ 153              	>  .equ blockstart,blockstart+1024
+ 153              	>  .endif
+ 153              	>  SET_DEFAULT_TYPETAG
+ 153              	>>  .if blocknumber % 2
+ 153              	>> 
+ 153              	>>  .equ default_typetag,9
+ 153              	>> 
+ 153              	>>  .else
+ 153              	>>  .equ default_typetag,4
+ 153              	>> 
+ 153              	>>  .endif
+ 154              	BLOCK
+ 154              	>  .ifb 
+ 154              	>  .print "compiling next block"
+ 154              	>  .equ blocknumber,blocknumber+1
+ 154              	>  .else
+ 154              	>  .print "compiling block "
+ 154              	>  .equ blocknumber,
+ 154              	>  .endif
+ 154              	>  .ifdef ABSOLUTE_BLOCKNUMBER
+ 154              	>  .org blocknumber * 1024
+ 154              	>  .else
+ 154 0000 00000000 	>  .org blockstart
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154      00000000 
+ 154              	>  .equ blockstart,blockstart+1024
+ 154              	>  .endif
+ 154              	>  SET_DEFAULT_TYPETAG
+ 154              	>>  .if blocknumber % 2
+ 154              	>> 
+ 154              	>>  .equ default_typetag,9
+ 154              	>> 
+ 154              	>>  .else
+ 154              	>>  .equ default_typetag,4
+ 154              	>> 
+ 154              	>>  .endif
+DEFINED SYMBOLS
+                            *ABS*:0000000000000001 MANDELBROT
+         newcode.asm:1      .text:0000000000000800 blockstart
+         newcode.asm:1      *ABS*:0000000000000001 blocknumber
+         newcode.asm:153    *ABS*:0000000000000009 default_typetag
+
+NO UNDEFINED SYMBOLS

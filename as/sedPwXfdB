@@ -1,0 +1,272 @@
+.intel_syntax ;#colorforth, 2001 jul 22, chuck moore, public domain
+
+;#.486p
+
+.macro debugout
+/* CM referred to this as "Terry Loveall's e1 strobe" in some online docs, but
+/* I can't find anything regarding port 0xe1 anywhere else, and the data
+/* sent doesn't make any sense anyway. The boot failure problems mentioned in
+/* that online document would more likely be due to the hardcoded millisecond
+/* calculations for busy-wait routines than any "strobe" effect.
+/* jc is also using this for debugging, with a modified keyboard.cc,
+/* under Bochs. */
+    out 0xe1, al
+.endm
+
+;# can't use loopnz in 32-bit mode
+.macro next adr
+    dec  ecx
+    jnz  \adr
+.endm
+
+;# save contents of eax on data stack
+;# often used as copy of return stack pointer
+.macro dup_
+    lea  esi, [esi-4]
+    mov  [esi], eax
+.endm
+
+;# pop what's at bottom of data stack back into eax
+.macro drop
+    lodsd
+.endm
+
+.ifdef CM2001 ;# Chuck Moore's 2001 code includes AGP-specific video...
+ .equ QUESTIONABLE, 1 ;# ...and other weird stuff found in color.com binary
+ .equ AGP, 1
+ .equ AUTO_REFRESH, 1 ;# screen refresh constantly runs
+.endif
+
+.ifndef SMALLSCREEN
+ .equ hp, 1024 ;# 1024 or 800
+ .equ vp, 768 ;# 768 or 600
+ .equ vesa, 0x4117 ;# bit 12 sets linear address mode in 0x117 or 0x114
+.else
+ .equ hp, 800
+ .equ vp, 600
+ .equ vesa, 0x4114
+.endif
+.equ buffer, 604*256
+.include "boot.asm" ;# boot boot0 hard
+
+;#   100000 dictionary
+;#    a0000 top of return stack
+;#    9f800 top of data stack
+;#    9d800 free
+;#    97000 floppy buffer
+;#     4800 source ;# block 18, first high-level source block (load screen)
+.equ icons, 12*256*4 ;# 3000, block 12 start of character maps
+;#     7c00 bios boot sector
+;#        0 forth
+
+warm: dup_
+start1:
+.ifdef AGP
+    call ati0  # access North Bridge chipset to get display RAM address
+.else
+    pop [displ]  # use address determined by VBE2 call in boot.asm
+.endif
+    call show0 ;# set up 'main' task to draw screen
+    mov  dword ptr forths, offset ((forth1-forth0)/4) ;# number of Forth words
+    mov  dword ptr macros, offset ((macro1-macro0)/4) ;# number of macros
+    mov  eax, 18 ;# load start screen, 18
+;# the start screen loads a bunch of definitions, then 'empty' which shows logo
+    call load
+    jmp  accept ;# wait for keyhit
+
+;# This version of colorforth has cooperative round-robin multi-tasking.
+;# the tasks are: God (the forth kernel), and main
+;# Each has two grow-down stacks; 's' indicates the
+;# return stack, 'd' indicates the data stack.  Thus 'Gods' and 'Godd'
+;# are the tops of the return and data stacks, respectively, for the
+;# God task.
+.equ gods, 0x28000*4 ;# 0xa0000, top of return stack
+.equ godd, gods-750*4 ;# 0x9f448, top of data stack
+.equ mains, godd-1500*4 ;# 0x9dcd8
+.equ maind, mains-750*4 ;# 0x9d120
+.align 4
+;# 'me' points to the save slot for the current task
+me: .long god
+screen:
+.ifdef CM2001
+    .long 0x100f1f ;# matches cm2001 color.com binary
+.else
+    .long 0 ;# logo
+.endif
+;# When we switch tasks, we need to switch stacks as well.  We do this
+;# by pushing eax (cached top-of-stack) onto the data stack, pushing
+;# the data stack pointer onto the return stack, and then saving the
+;# return stack pointer into the save slot for the task.
+;#
+;# these are the save slots - each is followed by code to resume the
+;# next task - the last one jumps 'round to the first.
+round: call unpause
+god:
+.ifdef CM2001
+    .long 0x9ffe8 ;# found in cm2001 color.com binary
+.else
+    .long 0 ;# gods-2*4
+.endif
+    call unpause
+main:
+.ifdef CM2001
+    .long 0x9dcd0
+.else
+    .long 0 ;# mains-2*4
+.endif
+    jmp  round
+
+pause: dup_ ;# save cached datum from top of data stack
+    push esi ;# save data stack pointer on return stack
+    mov  eax, me ;# get current task
+    mov  [eax], esp ;# put our stack pointer into [me]
+    add  eax, 4 ;# skip storage slot, point to round-robin CALL or JMP
+    jmp  eax ;# execute the CALL or JMP
+
+unpause: pop  eax ;# return address is that of 'main' slot above
+    mov  esp, [eax] ;# load 'main' task return stack
+    mov  me, eax ;# 'main' task becomes 'me', current task
+    pop  esi ;# restore my task's data-stack pointer
+    drop ;# load previously dup'd datum back into EAX
+    ret
+
+act: ;# set currently active task
+    mov  edx, maind-4 ;# data stack of 'main' task
+    mov  [edx], eax ;# 0 if called from 'show'
+    mov  eax, mains-4 ;# return stack of 'main' task
+    pop  [eax] ;# return of 'god' task now on 'main' stack
+    sub  eax, 4 ;# down one slot on 'main' stack
+    mov  [eax], edx ;# store 'main' data stack pointer
+    mov  main, eax ;# store 'main' return stack pointer in 'main' slot
+    drop ;# what was 'dup'd before now into eax
+    ret ;# to previous caller, since we already popped 'our' return address
+
+show0: call show
+    ret
+show: pop  screen ;# pop return address into screen; 'ret' if from show0
+    dup_
+    xor  eax, eax
+    call act ;# make following infinite loop the 'active task'
+0:  call graphic ;# just 'ret' in gen.asm
+    call [screen] ;# ret if called from show0
+    call switch ;# load framebuffer into video, then switch task
+    inc  eax ;# why bother?
+    jmp  0b ;# loop eternally
+
+c_: mov  esi, godd+4
+    ret
+
+mark: mov  ecx, macros
+    mov  mk, ecx
+    mov  ecx, forths
+    mov  mk+4, ecx
+    mov  ecx, h
+    mov  mk+2*4, ecx
+    ret
+
+empty: mov  ecx, mk+2*4
+    mov  h, ecx
+    mov  ecx, mk+4
+    mov  forths, ecx
+    mov  ecx, mk
+    mov  macros, ecx
+    mov  dword ptr class, 0
+    ret
+
+mfind: ;# find pointer to macro code
+    mov  ecx, macros ;# number of macros, 1-based
+    push edi ;# save destination pointer, we need to use it momentarily
+    lea  edi, [macro0-4+ecx*4] ;# point to last macro
+    jmp  0f ;# search dictionary
+
+find: ;# locate code of high- or low-level Forth word
+    mov  ecx, forths ;# current number of Forth definitions
+    push edi ;# save destination pointer so we can use it
+    lea  edi, [forth0-4+ecx*4] ;# point it to last packed Forth word
+0:  std  ;# search backwards
+    repne scasd ;# continue moving until we hit a match
+    cld  ;# clear direction flag again
+    pop  edi ;# no longer need this, can tell from ECX where match was found
+    ret
+
+ex1: dec dword ptr words ;# from keyboard
+    jz   0f
+    drop
+    jmp  ex1
+0:  call find
+    jnz  abort1
+    drop
+    jmp  [forth2+ecx*4] ;# jump to low-level code of Forth word or macro
+
+execute: mov dword ptr  lit, offset alit
+    dup_
+    mov  eax, [-4+edi*4]
+ex2: and  eax, -020
+    call find
+    jnz  abort
+    drop
+    jmp  [forth2+ecx*4]
+
+abort: mov  curs, edi
+    shr  edi, 10-2
+    mov  blk, edi
+abort1: mov  esp, gods ;# reset return stack pointer
+    mov  dword ptr  spaces+3*4, offset forthd
+    mov  dword ptr  spaces+4*4, offset qcompile
+    mov  dword ptr  spaces+5*4, offset cnum
+    mov  dword ptr  spaces+6*4, offset cshort
+    mov  eax, 057 ;# '?'
+    call echo_
+    jmp  accept
+
+sdefine: pop adefine
+    ret
+macro_: call sdefine
+macrod: mov  ecx, macros
+    inc dword ptr  macros
+    lea  ecx, [macro0+ecx*4]
+    jmp  0f
+
+forth: call sdefine
+forthd: mov  ecx, forths
+    inc dword ptr  forths
+    lea  ecx, [forth0+ecx*4]
+0:  mov  edx, [-4+edi*4]
+    and  edx, -020
+    mov  [ecx], edx
+    mov  edx, h
+    mov  [forth2-forth0+ecx], edx
+    lea  edx, [forth2-forth0+ecx]
+    shr  edx, 2
+    mov  last, edx
+    mov  list, esp
+    mov dword ptr  lit, offset adup
+    test dword ptr class, -1
+    jz   0f
+    jmp  [class]
+0:  ret
+
+cdrop: mov  edx, h
+    mov  list, edx
+    mov  byte ptr [edx], 0x0ad ;# lodsd
+    inc  dword ptr h
+    ret
+
+qdup: mov  edx, h
+    dec  edx
+    cmp  list, edx
+    jnz  cdup
+    cmp  byte ptr [edx], 0x0ad
+    jnz  cdup
+    mov  h, edx
+    ret
+cdup: mov  edx, h
+    mov  dword ptr [edx], 0x89fc768d
+    mov  byte ptr [4+edx], 06
+    add dword ptr  h, 5
+    ret
+
+adup: dup_
+    ret
+
+var1: dup_
