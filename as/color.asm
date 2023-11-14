@@ -1,4 +1,4 @@
-.intel_syntax ;#colorforth, 2001 jul 22, chuck moore, public domain
+.intel_syntax noprefix ;#colorforth, 2001 jul 22, chuck moore, public domain
 
 ;#.486p
 
@@ -539,7 +539,7 @@ macro1:
     .long 0xc9800000 ;# hd (a valid packed word but isn't defined anywhere)
     .long 0x00005811 ;# which isn't a valid packed word
 .endif
-    .rept 128 - ((.-macro1)/4) .long 0; .endr ;# room for new macros
+    .rept 128 - ((.-macro1)/4); .long 0; .endr ;# room for new macros
 forth0:
     packword boot, warm, pause, macro, forth, c, stop, read, write, nc
     packword command, seek, ready, act, show, load, here, ?lit, "3,", "2,"
@@ -560,7 +560,7 @@ forth1:
     packword cyls, put, get, .com, format
 ;# this brings us to address 0x12cc
 .endif
-    .rept 512 - ((.-forth1)/4) .long 0; .endr
+    .rept 512 - ((.-forth1)/4); .long 0; .endr
 macro2:
     .long semi, cdup, qdup, cdrop, then, begin
 0:
@@ -576,7 +576,7 @@ macro2:
     .long 0x100cb8, 0x100cdb, 0x100ce5, 0x100cef, 0x100cfe
     .long 0x100758, 0x10076c, 0x000552
 .endif
-    .rept 128 - ((.-0b)/4) .long 0; .endr
+    .rept 128 - ((.-0b)/4); .long 0; .endr
 forth2:
     .long boot, warm, pause, macro_, forth, c_, stop, readf, writef, nc_
     .long cmdf, seekf, readyf, act, show, load, here, qlit, comma3, comma2
@@ -601,7 +601,7 @@ forth2:
     .long 0x101028, 0x101039, 0x101044, 0x10104f, 0x10107d
     .long 0x1010a5, 0x1010d3, 0x1010f5, 0x101119, 0x1008c1
 .endif
-    .rept 512 - ((.-0b)/4) .long 0; .endr ;# room for new definitions
+    .rept 512 - ((.-0b)/4); .long 0; .endr ;# room for new definitions
 
 boot: mov  al, 0x0fe ;# reset
     out  0x64, al
@@ -718,7 +718,7 @@ history:
 .ifdef CM2001
     .byte 0, 0, 0, 0, 0, 0, 0, 37, 10, 3, 9
 .else
-    .rept 11 .byte 0; .endr
+    .rept 11; .byte 0; .endr
 .endif
 echo_: push esi
     mov  ecx, 11-1
@@ -1177,18 +1177,18 @@ hdot: mov  ecx, 8
 /* displaying a number off the stack */
 dot: mov  ecx, 7
 0:  call odig
-    jnz  @h
+    jnz  Lh  ;# local symbol syntax changed from @ to L
     drop
     next 0b
     inc  ecx
 0:  call odig
-@h1: call edig
+Lh1: call edig
     next 0b
     call space
     drop
     ret
-@h: inc  ecx
-    jmp  @h1
+Lh: inc  ecx
+    jmp  Lh1
 
 qdot: cmp dword ptr  base, 10
     jnz  dot

@@ -1,4 +1,4 @@
-.intel_syntax ;# floppy boot segment
+.intel_syntax noprefix ;# floppy boot segment
 .ifdef DMA
 ;# Floppy boot segment. Modified 7/17/01 for Asus P2B-D Floppy I/O Terry Loveall
 ;# Modified again by, or at least used by, Jeff Fox in his 2005 binaries
