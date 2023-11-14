@@ -1,10 +1,13 @@
 #!/usr/bin/python2
-"""dump a colorForth image file -- jc.unternet.net
+'''
+dump a colorForth image file
 
-            public domain code based on Tim Neitz's cf2html
-            see http://www.colorforth.com/parsed.html for meaning of bit patterns"""
+public domain code based on Tim Neitz's cf2html
+see http://www.colorforth.com/parsed.html for meaning of bit patterns
+'''
 
-import sys, os, struct, re
+import sys, os, struct, re, logging  # pylint: disable=multiple-imports
+logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 
 # the old huffman code is from http://www.colorforth.com/chars.html
 oldcode  = ' rtoeani' + 'smcylgfw' + 'dvpbhxuq' + 'kzj34567' + \
@@ -66,8 +69,8 @@ colortags = [
     'normal', 'normal', 'normal', 'normal',
 ]
 
-highbit =  0x80000000L
-mask =     0xffffffffL
+highbit =  0x80000000L  # pylint: disable=syntax-error
+mask =     0xffffffffL  # pylint: disable=syntax-error
 
 formats = ['', 'html', 'color', 'plaintext']
 newlines = ['\n', '<BR>\n', '\n', '\n']
@@ -469,6 +472,7 @@ def init():
     dump['dump_formats'] = [dump_normal, dump_tags, dump_color, dump_plain]
 
 def allzero(array):
+    #logging.debug('array: %s', array)
     return not filter(long.__nonzero__, array)
 
 def cfdump(filename):
@@ -482,7 +486,7 @@ def cfdump(filename):
         output.write('<link rel=stylesheet type="text/css" href="colorforth.css">\n')
     for dump['block'] in range(len(data) / 1024):
         chunk = data[dump['block'] * 1024:(dump['block'] * 1024) + 1024]
-        dump['blockdata'] = struct.unpack('<256L', chunk)
+        dump['blockdata'] = map(long, struct.unpack('<256L', chunk))
         output.write('{block %d}\n' % dump['block'])
         if dump['format'] == 'html': output.write('<div class=code>\n')
         dump['index'] = 0
